@@ -29,6 +29,7 @@ path <- setwd("C:/users/Duck/Documents/Studium/EAGLE/2_semester/3_Spatio_Tempora
 # 
 # occ_data <- occ_download_import(dl)
 
+# TODO: Need to fic path
 occ_data <- occ_download_import("0003051-250811113504898.zip")
 
 
@@ -46,10 +47,10 @@ occ_data_filtered <- occ_data_filtered %>% select(c("decimalLongitude","decimalL
 
 #---- Define AOI ---------------------------------------------------------------
 # Extent of AOI
-xmin <- -170   # Westgrenze Alaska (ohne weit entfernte Aleuten)
-xmax <-  -52   # Ostgrenze Kanada (Neufundland)
-ymin <-   33   # Südlichste USA (inkl. Florida Keys)
-ymax <-   68   # Nördlichstes Kanada (arktisch)
+xmin <- -170   # West Alasca
+xmax <-  -52   # East Canada
+ymin <-   33   # Somewhere South USA
+ymax <-   68   # Somewhere North canada
 
 aoi_ext <- ext(xmin, xmax, ymin, ymax)
 
