@@ -15,6 +15,7 @@ library(corrplot)
 library(caret)
 library(pROC)
 library(predicts)
+library(maxnet)
 
 #---- Download of "Oreamnos americanus (Blainville, 1816)" ---------------------
 
@@ -210,19 +211,20 @@ print(table(goat_test$occ))
 #** FALSE: without elevation*
 #** TRUE: with elevation*
 
-elev <- FALSE
+elev <- FALSE  
 
 if (elev) {
-  filtered_var <- names(bioclim_elev_data_pred)
+  filtered_var <- vars_with_elev
 } else {
-  filtered_var <- setdiff(names(bioclim_data_pred), "wc2.1_2.5m_elev")
+  filtered_var <- vars_without_elev
 }
 #**############################################################################*
 
 
-
-
+################################################################################
+#-------------------------------------------------------------------------------
 #---- Generalized Linear Model -------------------------------------------------
+#-------------------------------------------------------------------------------
 
 # generate model on training data
 var_glm <- as.formula(paste("occ ~", paste(filtered_var, collapse = " + ")))
@@ -240,8 +242,66 @@ plot(roc_obj, main = paste("AUC =", round(auc(roc_obj), 3)))
 
 
 #---- Check for overfitting ----------------------------------------------------
+
 train_preds <- predict(model_glm, newdata = goat_train, type = "response")
 roc_train <- roc(goat_train$occ, train_preds)
 auc(roc_train)
 auc(roc_obj)
 #TODO: Second overfitting test
+
+
+#---- Predict to raster --------------------------------------------------------
+
+# extract relevant predictors
+bioclim_sel <- bioclim_data[[filtered_var]]
+
+# using only predictors, that were actually used in the model
+pred_in_model <- attr(terms(model_glm), "term.labels")
+bioclim_sel   <- bioclim_sel[[intersect(pred_in_model, names(bioclim_sel))]]
+
+# prediction based on GLM-model
+model_glm_pred <- terra::predict(object = bioclim_sel,model  = model_glm, type   = "response",na.rm  = TRUE)
+
+plot(model_glm_pred, main = "Predicted Habitat Suitability (GLM)")
+
+
+
+
+################################################################################
+#-------------------------------------------------------------------------------
+#---- Maximum Entropy Model ----------------------------------------------------
+#-------------------------------------------------------------------------------
+
+# used predictors in GLM-model
+pred_in_model <- attr(terms(model_glm), "term.labels")
+
+# filtering for only columns, which were used in the GLM-model and deleting a few columns with NA-values
+pred_cols <- intersect(pred_in_model, names(goat))
+mx_train <- goat_train[, c("occ", pred_cols)]
+mx_train <- mx_train[complete.cases(mx_train[, pred_cols]), ]
+mx_test  <- goat_test[,  c("occ", pred_cols)]
+mx_test  <- mx_test[complete.cases(mx_test[, pred_cols]), ]
+
+#
+fmx <- maxnet.formula(p = mx_train$occ, data = mx_train[, pred_cols], classes = "lqph")
+
+# maxnet model 
+model_maxnet <- maxnet(p= mx_train$occ, data = mx_train[, pred_cols], f= fmx)
+
+test_pred_mx <- predict(model_maxnet, newdata = mx_test[, pred_cols], type = "cloglog")
+
+roc_mx <- pROC::roc(mx_test$occ, as.numeric(test_pred_mx))
+plot(roc_mx, main = paste("MaxEnt (maxnet) — AUC =", round(pROC::auc(roc_mx), 3)))
+
+
+#---- Predict to raster --------------------------------------------------------
+bioclim_mx <- bioclim_data[[pred_cols]]
+model_maxnet_pred <- terra::predict(bioclim_mx, model_maxnet, type = "cloglog", na.rm = TRUE)
+plot(model_maxnet_pred, main = "Predicted Habitat Suitability (MaxNet)")
+
+
+
+par(mfrow = c(1, 2))
+plot(model_glm_pred, main = "GLM Habitat Suitability")
+plot(model_maxnet_pred, main = "MaxEnt Habitat Suitability")
+par(mfrow = c(1, 1))
