@@ -16,10 +16,13 @@ library(caret)
 library(pROC)
 library(predicts)
 
-#---- Download data of "Oreamnos americanus (Blainville, 1816)" ----------------
+#---- Download of "Oreamnos americanus (Blainville, 1816)" ---------------------
 
-path <- setwd("....")
+#**############################################################################*
+#** Either first download of "Oreamnos americanus (Blainville, 1816)"...*
 
+# path <- setwd("....")
+#
 # # Download Data
 # key <- name_backbone(name = "Oreamnos americanus")$usageKey
 # 
@@ -35,19 +38,22 @@ path <- setwd("....")
 # 
 # occ_data <- occ_download_import(dl)
 
-# If data is already local
+#**...or if the data already exists locally: *
 path <- "C:/users/Duck/Documents/Studium/EAGLE/2_semester/3_Spatio_Temporal_Modelling/ST25_SpatioTemporalModeling_Exam/ST25_SpatioTemporalModeling/data/0003051-250811113504898.zip"
 tmpdir   <- tempdir()
 
-# occurrence.txt entpacken
+# unpack occurrence.txt
 unzip(path, files = "occurrence.txt", exdir = tmpdir, overwrite = TRUE)
-
-# Einlesen
+# load data
 occ_data <- read_tsv(file.path(tmpdir, "occurrence.txt"), show_col_types = FALSE)
+#**############################################################################*
+#*
+
+
 
 #---- Clean and filtering Data -------------------------------------------------
-# Keeping only entries with accuracy of 1 km,
-# and deleting entries of preserved specimen
+
+# Keeping only entries with accuracy of 1 km, and deleting entries of preserved specimen
 occ_data_filtered <- occ_data %>%
   filter(
     (is.na(coordinateUncertaintyInMeters) | coordinateUncertaintyInMeters <= 1000) &
@@ -57,7 +63,11 @@ occ_data_filtered <- occ_data %>%
 # remove unnecessary columns
 occ_data_filtered <- occ_data_filtered %>% select(c("decimalLongitude","decimalLatitude"))
 
+
+
+
 #---- Define AOI ---------------------------------------------------------------
+
 # Extent of AOI
 xmin <- -160
 xmax <-  -100
@@ -80,49 +90,41 @@ ggplot() +
   coord_sf(xlim = c(xmin, xmax), ylim = c(ymin, ymax), expand = FALSE) +
   labs (title = "Area of interest")
 
-#---- Bioclimatic variables, altitude data -------------------------------------
+
+
+
+#---- Download bioclimatic variables and altitude data -------------------------
+
 path_data <- "C:/users/Duck/Documents/Studium/EAGLE/2_semester/3_Spatio_Temporal_Modelling/ST25_SpatioTemporalModeling_Exam/ST25_SpatioTemporalModeling/data"
 
-# Bioclimatic variables
-#TODO: Download 0.5 --> 1km
-# Download for USA and Canada
-
-# bio_us  <- worldclim_country("USA", var="bio",  res=0.5, path=path_data)  |> crop(geographic_extent)
-# bio_can <- worldclim_country("CAN", var="bio",  res=0.5, path=path_data)  |> crop(geographic_extent)
-# bio     <- mosaic(bio_us, bio_can, fun="mean")
-
-# bio_us <- worldclim_country(country = "USA", var = "bio", res = 2.5, path = path_data)
-# bio_ca <- worldclim_country(country = "CAN", var = "bio", res = 2.5, path = path_data)
+#**############################################################################*
+#** Either download bioclimatic variables and altitude data data for the first time*
+# bioclim_aoi_file <- file.path(path_data, "bioclim_AOI_2p5m.tif")
+# # DOwnload bioclimatic variables and altitude data
+# bioclim_data <- worldclim_global(var = "bio",
+#                                  res = 2.5,
+#                                  path = "data/")
+# alt <- elevation_global(res = 2.5, path = "data/")
+# bioclim_data <- c(bioclim_data, alt)
 # 
-# bio    <- mosaic(bio_us, bio_ca, fun = "mean")
-# bio    <- crop(bio, aoi_ext)
+# # Crop
+# bioclim_data <- crop(x = bioclim_data, y = aoi_ext)
 # 
-# # Altitude data
-# elev_us <- worldclim_country(country = "USA", var = "elev", res = 2.5, path = path_data)
-# elev_ca <- worldclim_country(country = "CAN", var = "elev", res = 2.5, path = path_data)
-# elev    <- mosaic(elev_us, elev_ca, fun = "mean")
-# elev    <- crop(elev, aoi_ext)
+# # Save as GeoTIFF
+# writeRaster(bioclim_data,
+#             filename = bioclim_aoi_file,
+#             overwrite = TRUE)
 
-################################################################################
-# DOwnload bioclimatic variables and altitude data
-bioclim_data <- worldclim_global(var = "bio",
-                                 res = 2.5,
-                                 path = "data/")
-alt <- elevation_global(res = 2.5, path = "data/")
-bioclim_data <- c(bioclim_data, alt)
+#** Or load data if already downloaded*
+bioclim_aoi_file <- file.path(path_data, "bioclim_AOI_2p5m.tif")
+bioclim_data <- rast(bioclim_aoi_file)
+#**############################################################################*
 
-bioclim_data <- crop(x = bioclim_data, y = aoi_ext)
 plot(bioclim_data[[1]])
 
-
-## Create background points
+## Create 5000 pseudo-absence background points
 set.seed(20)
-
-background <- spatSample(x = bioclim_data,
-                         size = 5000,    # generate 5000 pseudo-absence points
-                         values = FALSE, # don't need values
-                         na.rm = TRUE,   
-                         xy = TRUE)
+background <- spatSample(x = bioclim_data, size = 5000, values = FALSE, na.rm = TRUE, xy = TRUE)
 
 # Map the background points
 points(background,
@@ -130,50 +132,103 @@ points(background,
        pch = 1,
        cex = 0.75)
 
-## Merge background and occurence to one data set
-goat <- data.frame(occ_data_filtered, occ = 1) # 1= presence
-goat <- background %>% as.data.frame() %>%
+# Merge background and occurence to one data set
+goat_pres <- data.frame(occ_data_filtered, occ = 1) # 1= presence
+goat_seed <- background %>% as.data.frame() %>%
   rename(
     decimalLongitude = x,
-    decimalLatitude = y
-  ) %>% mutate(
-    occ = 0
-  ) %>% 
-  rbind(goat)
+    decimalLatitude = y) %>% 
+    mutate(occ = 0)
 
+goat <- rbind(goat_pres,goat_seed)
 
+# extract variables for each point  
 e <- extract(x = bioclim_data, y = goat[,c("decimalLongitude","decimalLatitude")], cells = TRUE)
-goat <- cbind(goat, e)
-## remove points that fall within the same cell, to only have one point per raster-cell (becuase the values are similar)
+goat <- cbind(goat,e)
+
+# remove points that fall within the same cell, to only have one point per raster-cell (because the values are similar)
 goat <-goat[!duplicated(goat$cell),]
+
+# plot observation and random seed points
+ggplot() +
+  geom_sf(data = world_sf, color = "grey50", fill = "white", linewidth = 0.2) +
+  geom_point(data = goat, aes(x = decimalLongitude, y = decimalLatitude, color = factor(occ)),size = 0.5) +
+  scale_color_manual(values = c("0" = "grey30", "1" = "red"), labels = c("Random", "Presence")) +
+  coord_sf(xlim = c(xmin, xmax), ylim = c(ymin, ymax), expand = FALSE) +
+  labs(title = "Presences & Random")
+
+
+
+
+#---- Check bioclimatic variables ----------------------------------------------
 
 # Check correlation of our variables
 valnum <- lapply(bioclim_data, as.data.frame ) 
 valnum <- do.call(cbind,valnum)
 
+# using pearson correlation, since the variables are metric and continuous
 cor_matrix <- cor(valnum, use = "complete.obs", method = "pearson")
+# plot correlation matrix
 corrplot(cor_matrix, method = "number", type = "upper", tl.cex = 0.4, number.cex = 0.7)
 
-to_remove <- findCorrelation(cor_matrix, cutoff = 0.75, names = TRUE)
+# remove correlations >= 0.7, to reduce multicollinearity risk and make the model more stable
+to_remove <- findCorrelation(cor_matrix, cutoff = 0.70, names = TRUE)
+all_vars <- names(bioclim_data)
+print(all_vars)
 
-# remove elevation from to_remove because it makes a difference (try once without and once with elevation in)
-to_remove <- setdiff(to_remove, "wc2.1_2.5m_elev")
-bioclim_data_pred <- bioclim_data[[!names(bioclim_data) %in% to_remove]]
+# remove strong correlated cariables but keep elevation
+to_remove_but_keep_elev <- setdiff(to_remove, "wc2.1_2.5m_elev")
+vars_with_elev <- setdiff(all_vars, to_remove_but_keep_elev)
+print(vars_with_elev)
 
-#########
-###### Make a model with training and evaluation data
-#########
+# remove elevation from to_remove for a model run without elevation data
+vars_without_elev <- setdiff(all_vars, union(to_remove, "wc2.1_2.5m_elev"))
+print(vars_without_elev)
 
-## Model evaluation and validation
-# Generate indexes for generating training and test/validation data - 70% of the data should be train and 30 for testing. You can also use other thresholds
+
+
+#---- Generating test- and training data ---------------------------------------
+
+# generate 70% train and 30% test-data 
+# generating random training sample
 train_data <- sample(seq_len(nrow(goat)), size=round(0.7*nrow(goat)))
 
 goat_train <-goat[train_data,]
 goat_test <- goat[-train_data,]
 
+# checking the balance between presence and background points
+print(table(goat_train$occ))
+print(table(goat_test$occ))
+
+
+
+
+#---- Decision with or without elevation data ----------------------------------
+
+#**############################################################################*
+#**Decide whether the following models run with or without elevation**
+#** FALSE: without elevation*
+#** TRUE: with elevation*
+
+elev <- FALSE
+
+if (elev) {
+  filtered_var <- names(bioclim_elev_data_pred)
+} else {
+  filtered_var <- setdiff(names(bioclim_data_pred), "wc2.1_2.5m_elev")
+}
+#**############################################################################*
+
+
+
+
+#---- Generalized Linear Model -------------------------------------------------
+
 # generate model on training data
-model_glm = step(glm(occ ~ wc2.1_2.5m_bio_2 + wc2.1_2.5m_bio_3 + wc2.1_2.5m_bio_6 + wc2.1_2.5m_bio_8 + 
-                       wc2.1_2.5m_bio_9 + wc2.1_2.5m_bio_13 +wc2.1_2.5m_bio_15 + wc2.1_2.5m_bio_18 + wc2.1_2.5m_bio_19 + wc2.1_2.5m_elev, family=binomial(link=logit), data= goat_train))
+var_glm <- as.formula(paste("occ ~", paste(filtered_var, collapse = " + ")))
+
+model_glm <- step(glm(var_glm, family = binomial(link = "logit"), data = goat_train))
+
 summary(model_glm)
 
 # predict based on test data
@@ -182,3 +237,12 @@ test_preds <- predict(model_glm, newdata = goat_test, type = "response")
 # Plot ROC curve and compute AUC
 roc_obj <- roc(goat_test$occ, test_preds)
 plot(roc_obj, main = paste("AUC =", round(auc(roc_obj), 3)))
+
+
+#---- Check for overfitting ----------------------------------------------------
+train_preds <- predict(model_glm, newdata = goat_train, type = "response")
+roc_train <- roc(goat_train$occ, train_preds)
+auc(roc_train) # --> 0.9049
+auc(roc_obj) # --> 0.9149
+#----> no strong overfitting
+#TODO: Second overfitting test
