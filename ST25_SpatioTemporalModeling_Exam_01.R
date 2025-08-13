@@ -242,7 +242,6 @@ plot(roc_obj, main = paste("AUC =", round(auc(roc_obj), 3)))
 #---- Check for overfitting ----------------------------------------------------
 train_preds <- predict(model_glm, newdata = goat_train, type = "response")
 roc_train <- roc(goat_train$occ, train_preds)
-auc(roc_train) # --> 0.9049
-auc(roc_obj) # --> 0.9149
-#----> no strong overfitting
+auc(roc_train)
+auc(roc_obj)
 #TODO: Second overfitting test
