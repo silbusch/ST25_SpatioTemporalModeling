@@ -18,6 +18,10 @@ library(predicts)
 library(maxnet)
 library(randomForest)
 library(mgcv)
+library(gbm)
+library(splines)
+library(foreach)
+library(gam)
 
 #---- Download of "Oreamnos americanus (Blainville, 1816)" ---------------------
 
@@ -173,10 +177,10 @@ valnum <- do.call(cbind,valnum)
 # using pearson correlation, since the variables are metric and continuous
 cor_matrix <- cor(valnum, use = "complete.obs", method = "pearson")
 # plot correlation matrix
-corrplot(cor_matrix, method = "number", type = "upper", tl.cex = 0.4, number.cex = 0.75)
+corrplot(cor_matrix, method = "number", type = "upper", tl.cex = 0.4, number.cex = 0.7)
 
 # remove correlations >= 0.75, to reduce multicollinearity risk and make the model more stable
-to_remove <- findCorrelation(cor_matrix, cutoff = 0.75, names = TRUE)
+to_remove <- findCorrelation(cor_matrix, cutoff = 0.7, names = TRUE)
 all_vars <- names(bioclim_data)
 print(all_vars)
 
@@ -195,7 +199,7 @@ print(vars_without_elev)
 
 # generate 70% train and 30% test-data 
 # generating random training sample
-train_data <- sample(seq_len(nrow(goat)), size=round(0.75*nrow(goat)))
+train_data <- sample(seq_len(nrow(goat)), size=round(0.7*nrow(goat)))
 
 goat_train <-goat[train_data,]
 goat_test <- goat[-train_data,]
@@ -459,9 +463,156 @@ plot(model_rf_pred, main = "Predicted Habitat Suitability (Random Forest)")
 
 
 
-par(mfrow = c(1, 4))
+################################################################################
+#-------------------------------------------------------------------------------
+#---- Ensemble Model -----------------------------------------------------------
+#-------------------------------------------------------------------------------
+
+# mean value for all predicted test and train data
+ens_test <- rowMeans(cbind(
+  as.numeric(test_preds),
+  as.numeric(pred_test_gam),
+  as.numeric(pred_test_mx),
+  as.numeric(pred_test_rf)
+), na.rm = TRUE)
+
+ens_train <- rowMeans(cbind(
+  as.numeric(train_preds),
+  as.numeric(pred_train_gam),
+  as.numeric(pred_train_mx),
+  as.numeric(pred_train_rf_oob)
+), na.rm = TRUE)
+
+# Roc, Auc and Gap
+roc_train_ens <- roc(goat_train$occ, ens_train)
+roc_test_ens  <- roc(goat_test$occ,  ens_test)
+
+auc_train_ens <- auc(roc_train_ens)
+auc_test_ens  <- auc(roc_test_ens)
+gap_ens       <- as.numeric(auc_train_ens - auc_test_ens)
+
+plot(roc_train_ens, col="blue", main="ROC — Ensemble (Train vs. Test)")
+lines(roc_test_ens, col="red")
+legend("bottomright",
+       legend = c(
+         paste0("Train (AUC = ", round(auc_train_ens, 3), ")"),
+         paste0("Test  (AUC = ", round(auc_test_ens, 3), ")"),
+         paste0("Gap   = ", round(gap_ens, 3))
+       ),
+       col=c("blue","red",NA), lwd=c(2,2,NA), bty="n")
+
+
+#---- Predict to raster --------------------------------------------------------
+#mean value of all predictions
+model_ens_pred <- (model_glm_pred + model_gam_pred + model_maxnet_pred + model_rf_pred) / 4
+
+plot(model_ens_pred, main = "Predicted Habitat Suitability, Mean Ensemble")
+
+
+
+
+# ################################################################################
+# #-------------------------------------------------------------------------------
+# #---- Compare Models -----------------------------------------------------------
+# #-------------------------------------------------------------------------------
+# # PROBLEM: Cate has no methods for MaxEnt
+# # Prep training data
+# cv_data <- goat[, c("occ", filtered_var)]
+# cv_data <- cv_data[complete.cases(cv_data), ]
+# 
+# # caret requires labels to be factors with levels
+# cv_data$occ <- factor(ifelse(cv_data$occ == 1, "Presence", "Absence"), levels = c("Presence", "Absence"))
+# 
+# # cross validation (10-times (collect AUC-values for 10 folds)) 
+# ctrl <- trainControl(method = "cv", number = 10, classProbs = TRUE, summaryFunction = twoClassSummary, savePredictions = "final")
+# 
+# old_seed <- .Random.seed
+# set.seed(50)
+# 
+# models_cv <- list(
+#   glm = train(occ ~ ., data = cv_data, method = "glm",
+#               family = binomial, trControl = ctrl, metric = "ROC"),
+#   gam = train(occ ~ ., data = cv_data, method = "gam",
+#               trControl = ctrl, metric = "ROC"),
+#   rf  = train(occ ~ ., data = cv_data, method = "rf",
+#               trControl = ctrl, metric = "ROC"))
+# 
+# .Random.seed <- old_seed
+# 
+# # saving metrics (AUC-Values) for every train fold of every model)
+# resamps <- caret::resamples(models_cv)
+# # compare boxplots of AUCs
+# bwplot(resamps, metric = "ROC", main = "Model Comparison (AUC)")
+# 
+# 
+################################################################################
+#-------------------------------------------------------------------------------
+#---- Threshold Model ----------------------------------------------------------
+#-------------------------------------------------------------------------------
+# Representation of the habitat when all grid cells with a certain threshold are
+# combined from all models. So, the locations where all models predict a very
+# high probability of occurrence of the Mountain Goat.
+# The condition for identifying a grid cell as a potential habitat is that at
+# least three of the four models have a prediction value of >= 0.75.
+
+# threshold
+thr <- 0.70
+
+# stacking the four main models
+preds <- c(model_glm_pred, model_gam_pred, model_rf_pred, model_maxnet_pred)
+names(preds) <- c("GLM","GAM","RF","MaxEnt")
+
+# count cells with valid value
+hits <- app(preds, fun = function(x) sum(x >= thr, na.rm = TRUE))
+habitat_bin <- ifel(hits >= 3, 1, 0)
+
+levels(habitat_bin) <- data.frame(ID = c(0,1), class = c("Probably no habitat", "Habitat"))
+
+plot(habitat_bin, main = "Consensus Habitat (≥3 models with predicted value ≥0.75)",
+     col = c("grey80", "darkgreen"), legend = FALSE)
+legend("bottomleft",
+       legend = c("Probably no habitat", "Habitat"),
+       fill   = c("grey80", "darkgreen"),
+       bty    = "n")
+
+#### Kicking out the GLM model
+
+# stacking the four main models
+preds_without_glm <- c( model_gam_pred, model_rf_pred, model_maxnet_pred)
+names(preds_without_glm) <- c("GAM","RF","MaxEnt")
+
+# count cells with valid value
+hits_2 <- app(preds_without_glm, fun = function(x) sum(x >= thr, na.rm = TRUE))
+habitat_bin_2 <- ifel(hits >= 2, 1, 0)
+
+levels(habitat_bin_2) <- data.frame(ID = c(0,1), class = c("Probably no habitat", "Habitat"))
+
+plot(habitat_bin_2, main = "Consensus Habitat (≥2 models with predicted value ≥0.75)",
+     col = c("grey80", "darkgreen"), legend = FALSE)
+plot(st_geometry(world_sf), add = TRUE, col = "transparent", border = "grey50", lwd = 0.1)
+legend("bottomleft",
+       legend = c("Probably no habitat", "Habitat"),
+       fill   = c("grey80", "darkgreen"),
+       bty    = "n")
+
+
+
+
+################################################################################
+################################################################################
+par(mfrow = c(2, 3))
 plot(model_glm_pred, main = "GLM Habitat Suitability")
 plot(model_gam_pred, main = "GAM Habitat Suitability")
 plot(model_maxnet_pred, main = "MaxEnt Habitat Suitability")
 plot(model_rf_pred, main = "Random Forest Suitability")
+plot(model_ens_pred, main = "Predicted Habitat Suitability, Mean Ensemble")
 par(mfrow = c(1, 1))
+
+# TODO: GLCM
+# TODO: select additional climatic variables and justify
+# TODO: rerun code with elevation and justify
+# TODO: create table to save AUC of Train and Test and GAP for each model
+# TODO: create ensemble model
+# TODO. in evelation selection part...also build in something like creating a different table and image-name (for the prediction raster), so at the end I will have two tables
+# TODO: Save overall prediction plots
+# TODO: interpret model summary
