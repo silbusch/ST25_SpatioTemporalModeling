@@ -16,6 +16,7 @@ library(caret)
 library(pROC)
 library(predicts)
 library(maxnet)
+library(randomForest)
 
 #---- Download of "Oreamnos americanus (Blainville, 1816)" ---------------------
 
@@ -288,18 +289,17 @@ plot(model_glm_pred, main = "Predicted Habitat Suitability (GLM)")
 
 # filtering for only columns, which were used in the GLM-model and deleting a few columns with NA-values
 pred_cols <- intersect(filtered_var, names(goat))
+
 mx_train <- goat_train[, c("occ", pred_cols)]
 mx_train <- mx_train[complete.cases(mx_train[, pred_cols]), ]
 mx_test  <- goat_test[,  c("occ", pred_cols)]
 mx_test  <- mx_test[complete.cases(mx_test[, pred_cols]), ]
 
-#
+# formular for maxnet model
 fmx <- maxnet.formula(p = mx_train$occ, data = mx_train[, pred_cols], classes = "lqph")
-
 # maxnet model 
 model_maxnet <- maxnet(p= mx_train$occ, data = mx_train[, pred_cols], f= fmx)
-
-summary(model_maxnet)
+print(model_maxnet)
 
 pred_train_mx <- predict(model_maxnet, newdata = mx_train[, pred_cols], type = "cloglog")
 pred_test_mx  <- predict(model_maxnet, newdata = mx_test[,  pred_cols], type = "cloglog")
@@ -348,18 +348,70 @@ plot(model_maxnet_pred, main = "Predicted Habitat Suitability (MaxNet)")
 #---- Random Forest Model ------------------------------------------------------
 #-------------------------------------------------------------------------------
 
+# Random Forest model with Bootstrap-Sampling 
+# saving the state of the random number generator to use an individual set.seed() in the RF model
+old_seed <- .Random.seed
+
+# same as before
+pred_cols <- intersect(filtered_var, names(goat_train))
+
+rf_train <- goat_train[, c("occ", pred_cols)]
+rf_test  <- goat_test[,  c("occ", pred_cols)]
+
+rf_train <- rf_train[complete.cases(rf_train), ]
+rf_test  <- rf_test[complete.cases(rf_test), ]
+
+rf_train$occ <- factor(rf_train$occ, levels = c(0, 1))
+rf_test$occ  <- factor(rf_test$occ,  levels = c(0, 1))
+
+
+set.seed(50)
+model_rf <- randomForest(occ ~ ., data = rf_train, ntree = 500, importance = TRUE)
+# model check:
+print(model_rf)
+model_rf$ntree
+model_rf$mtry 
+importance(model_rf)
+
+#reset seed
+.Random.seed <- old_seed
+
+
+#---- Check for overfitting ----------------------------------------------------
+
+pred_train_rf_oob <- predict(model_rf, type = "prob")[, "1"]
+pred_test_rf      <- predict(model_rf, newdata = rf_test, type = "prob")[, "1"]
+
+roc_train_rf <- pROC::roc(rf_train$occ, as.numeric(pred_train_rf_oob))
+roc_test_rf  <- pROC::roc(rf_test$occ,  as.numeric(pred_test_rf))
+
+auc_train_rf <- pROC::auc(roc_train_rf)
+auc_test_rf  <- pROC::auc(roc_test_rf)
+gap_rf       <- as.numeric(auc_train_rf - auc_test_rf)
+
+plot(roc_train_rf, col = "blue", main = "Random Forest (OOB vs. Test)")
+lines(roc_test_rf,  col = "red")
+legend("bottomright",
+       legend = c(
+         paste0("Train/OOB (AUC = ", round(auc_train_rf, 3), ")"),
+         paste0("Test (AUC = ", round(auc_test_rf, 3), ")"),
+         paste0("Gap= ", round(gap_rf, 3))),
+       col = c("blue","red", NA), lwd = c(2,2,NA), bty = "n")
+
+
+#---- Predict to raster --------------------------------------------------------
+
+bioclim_rf <- bioclim_data[[pred_cols]]
+
+model_rf_pred <- terra::predict(bioclim_rf, model_rf, type = "prob", index = 2, na.rm = TRUE)
+plot(model_rf_pred, main = "Predicted Habitat Suitability (Random Forest)")
 
 
 
 
-
-
-
-
-
-par(mfrow = c(2, 4))
+par(mfrow = c(1, 3))
 plot(model_glm_pred, main = "GLM Habitat Suitability")
 plot(model_maxnet_pred, main = "MaxEnt Habitat Suitability")
-plot(..., main = "...")
+plot(model_rf_pred, main = "Random Forest Suitability")
 plot(..., main = "...")
 par(mfrow = c(1, 1))
