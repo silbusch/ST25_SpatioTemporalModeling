@@ -22,6 +22,7 @@ library(gbm)
 library(splines)
 library(foreach)
 library(gam)
+library(openxlsx)
 
 #---- Download of "Oreamnos americanus (Blainville, 1816)" ---------------------
 
@@ -104,8 +105,10 @@ ggplot() +
 
 path_data <- "C:/users/Duck/Documents/Studium/EAGLE/2_semester/3_Spatio_Temporal_Modelling/ST25_SpatioTemporalModeling_Exam/ST25_SpatioTemporalModeling/data"
 
-#**############################################################################*
-#** Either download bioclimatic variables and altitude data data for the first time*
+#*******************************************************************************
+#*                                                                      ********
+#*                                                                      ********
+#** Either download bioclimatic variables and altitude data for the first time*
 # bioclim_aoi_file <- file.path(path_data, "bioclim_AOI_2p5m.tif")
 # # DOwnload bioclimatic variables and altitude data
 # bioclim_data <- worldclim_global(var = "bio",
@@ -125,8 +128,9 @@ path_data <- "C:/users/Duck/Documents/Studium/EAGLE/2_semester/3_Spatio_Temporal
 #** Or load data if already downloaded*
 bioclim_aoi_file <- file.path(path_data, "bioclim_AOI_2p5m.tif")
 bioclim_data <- rast(bioclim_aoi_file)
-
-#**############################################################################*
+#*                                                                      ********
+#*                                                                      ********
+#*******************************************************************************
 
 plot(bioclim_data[[1]])
 
@@ -171,7 +175,7 @@ ggplot() +
 #---- Check bioclimatic variables ----------------------------------------------
 
 # Check correlation of our variables
-valnum <- lapply(bioclim_data, as.data.frame ) 
+valnum <- lapply(bioclim_data, as.data.frame )
 valnum <- do.call(cbind,valnum)
 
 # using pearson correlation, since the variables are metric and continuous
@@ -193,6 +197,30 @@ print(vars_with_elev)
 vars_without_elev <- setdiff(all_vars, union(to_remove, "wc2.1_2.5m_elev"))
 print(vars_without_elev)
 
+#Variable selection option above leaded to AUC for Train and Test between 0.9 and 0.99 for all models 
+
+# all_vars <- names(bioclim_data)
+# 
+# keep_vars <- c(
+#   "wc2.1_2.5m_bio_1",
+#   "wc2.1_2.5m_bio_2",
+#   "wc2.1_2.5m_bio_3",
+#   "wc2.1_2.5m_bio_8",
+#   "wc2.1_2.5m_bio_9",
+#   "wc2.1_2.5m_bio_10",
+#   "wc2.1_2.5m_bio_11",
+#   "wc2.1_2.5m_bio_13",
+#   "wc2.1_2.5m_bio_14",
+#   "wc2.1_2.5m_bio_18",
+#   "wc2.1_2.5m_bio_19")
+# 
+# keep_vars <- all_vars[all_vars %in% keep_vars]
+# elev_name <- "wc2.1_2.5m_elev"
+# 
+# vars_with_elev    <- unique(c(keep_vars, intersect(elev_name, all_vars)))
+# 
+# # remove elevation from to_remove for a model run without elevation data
+# vars_without_elev <- setdiff(keep_vars, elev_name)
 
 
 #---- Generating test- and training data ---------------------------------------
@@ -213,8 +241,9 @@ print(table(goat_test$occ))
 
 #---- Decision with or without elevation data ----------------------------------
 
-#**############################################################################*
-#**Decide whether the following models run with or without elevation**
+#*******************************************************************************
+#*                                                                      ********
+#** Decide whether the following models run with or without elevation   ********
 #** FALSE: without elevation*
 #** TRUE: with elevation*
 
@@ -225,9 +254,11 @@ if (elev) {
 } else {
   filtered_var <- vars_without_elev
 }
-#**############################################################################*
+#*                                                                      ********
+#*******************************************************************************
 
-
+################################################################################
+##         Model Area                                                         ##
 ################################################################################
 #-------------------------------------------------------------------------------
 #---- Generalized Linear Model -------------------------------------------------
@@ -253,7 +284,6 @@ train_preds <- predict(model_glm, newdata = goat_train, type = "response")
 roc_test <- roc(goat_test$occ, test_preds)
 roc_train <- roc(goat_train$occ, train_preds)
 
-# TODO: Using the area between the curves instead of substraction???
 # the gap of the ROC-curve between training and test is an indicator for overfitting: big gab --> overfitting
 auc_train_glm <- auc(roc_train)
 auc_test_glm  <- auc(roc_test)
@@ -599,7 +629,14 @@ legend("bottomleft",
 
 
 ################################################################################
+##         All predicted rasters                                              ##
 ################################################################################
+
+plot_suffix <- if (elev) "with_elev" else "without_elev"
+plot_file   <- paste0("Suitability_models_", plot_suffix, ".png")
+
+png(filename = plot_file, width = 2000, height = 1500, res = 150)
+
 par(mfrow = c(2, 3))
 plot(model_glm_pred, main = "GLM Habitat Suitability")
 plot(model_gam_pred, main = "GAM Habitat Suitability")
@@ -608,11 +645,49 @@ plot(model_rf_pred, main = "Random Forest Suitability")
 plot(model_ens_pred, main = "Predicted Habitat Suitability, Mean Ensemble")
 par(mfrow = c(1, 1))
 
+dev.off()
+cat("Plot got saved as:", plot_file, "\n")
+
+################################################################################
+##         Table with all AUC Values                                          ##
+################################################################################
+
+results <- data.frame(
+  Model     = c("GLM", "GAM", "MaxEnt", "Random Forest", "Ensemble"),
+  AUC_train = round(c(
+    as.numeric(auc_train_glm),
+    as.numeric(auc_train_gam),
+    as.numeric(auc_train_mx),
+    as.numeric(auc_train_rf),
+    as.numeric(auc_train_ens)
+  ), 4),
+  AUC_test  = round(c(
+    as.numeric(auc_test_glm),
+    as.numeric(auc_test_gam),
+    as.numeric(auc_test_mx),
+    as.numeric(auc_test_rf),
+    as.numeric(auc_test_ens)
+  ), 4)
+)
+
+results$GAP <- round(results$AUC_train - results$AUC_test, 4)
+
+# creating table depending if elev = TRUE or FALSE
+if (elev) {
+  results_with_elev <- results
+} else {
+  results_without_elev <- results}
+
+# individual naming
+file_suffix <- if (elev) "with_elev" else "without_elev"
+file_name   <- paste0("AUC_results_", file_suffix, ".xlsx")
+
+# create .xlsx table in working directory
+write.xlsx(results, file = file_name, rowNames = FALSE)
+cat("Table got saved as:", file_name, "\n")
+
+
 # TODO: GLCM
-# TODO: select additional climatic variables and justify
-# TODO: rerun code with elevation and justify
-# TODO: create table to save AUC of Train and Test and GAP for each model
-# TODO: create ensemble model
-# TODO. in evelation selection part...also build in something like creating a different table and image-name (for the prediction raster), so at the end I will have two tables
-# TODO: Save overall prediction plots
+# TODO: Plot achsenbeschriftung long und lat, legendenbeschriftung, irgendwie richtigen plot machen
+# TODO: besseren threshold plot auch noch hinzufügen
 # TODO: interpret model summary
