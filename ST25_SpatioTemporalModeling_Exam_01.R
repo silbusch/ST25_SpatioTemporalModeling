@@ -229,26 +229,40 @@ if (elev) {
 # generate model on training data
 var_glm <- as.formula(paste("occ ~", paste(filtered_var, collapse = " + ")))
 
+# selection of predictors
 model_glm <- step(glm(var_glm, family = binomial(link = "logit"), data = goat_train))
 
 summary(model_glm)
 
 # predict based on test data
 test_preds <- predict(model_glm, newdata = goat_test, type = "response")
+train_preds <- predict(model_glm, newdata = goat_train, type = "response")
 
-# Plot ROC curve and compute AUC
-roc_obj <- roc(goat_test$occ, test_preds)
-plot(roc_obj, main = paste("AUC =", round(auc(roc_obj), 3)))
 
 
 #---- Check for overfitting ----------------------------------------------------
 
-train_preds <- predict(model_glm, newdata = goat_train, type = "response")
+# compute AUC and create ROC
+roc_test <- roc(goat_test$occ, test_preds)
 roc_train <- roc(goat_train$occ, train_preds)
-auc(roc_train)
-auc(roc_obj)
-#TODO: Second overfitting test
 
+# TODO: Using the area between the curves instead of substraction???
+# the gap of the ROC-curve between training and test is an indicator for overfitting: big gab --> overfitting
+auc_train_glm <- auc(roc_train)
+auc_test_glm  <- auc(roc_test)
+print(c(AUC_train=as.numeric(auc_train_glm), AUC_test=as.numeric(auc_test_glm),
+        gap=as.numeric(auc_train_glm-auc_test_glm)))
+
+# plot train and test-ROC curve and write down AUC values and gap between ROC-curves
+plot(roc_train, col = "blue")
+lines(roc_test, col = "red")
+legend(
+  "bottomright", legend = c(
+    paste0("Train (AUC = ", round(auc_train_glm, 3), ")"),
+    paste0("Test  (AUC = ", round(auc_test_glm, 3), 
+           ", Gap = ", round(gap_glm, 3), ")")
+  ),
+  col = c("blue", "red"), lwd = 2)
 
 #---- Predict to raster --------------------------------------------------------
 
@@ -272,11 +286,8 @@ plot(model_glm_pred, main = "Predicted Habitat Suitability (GLM)")
 #---- Maximum Entropy Model ----------------------------------------------------
 #-------------------------------------------------------------------------------
 
-# used predictors in GLM-model
-pred_in_model <- attr(terms(model_glm), "term.labels")
-
 # filtering for only columns, which were used in the GLM-model and deleting a few columns with NA-values
-pred_cols <- intersect(pred_in_model, names(goat))
+pred_cols <- intersect(filtered_var, names(goat))
 mx_train <- goat_train[, c("occ", pred_cols)]
 mx_train <- mx_train[complete.cases(mx_train[, pred_cols]), ]
 mx_test  <- goat_test[,  c("occ", pred_cols)]
@@ -288,20 +299,67 @@ fmx <- maxnet.formula(p = mx_train$occ, data = mx_train[, pred_cols], classes = 
 # maxnet model 
 model_maxnet <- maxnet(p= mx_train$occ, data = mx_train[, pred_cols], f= fmx)
 
-test_pred_mx <- predict(model_maxnet, newdata = mx_test[, pred_cols], type = "cloglog")
+summary(model_maxnet)
 
-roc_mx <- pROC::roc(mx_test$occ, as.numeric(test_pred_mx))
-plot(roc_mx, main = paste("MaxEnt (maxnet) — AUC =", round(pROC::auc(roc_mx), 3)))
+pred_train_mx <- predict(model_maxnet, newdata = mx_train[, pred_cols], type = "cloglog")
+pred_test_mx  <- predict(model_maxnet, newdata = mx_test[,  pred_cols], type = "cloglog")
+
+
+#---- Check for overfitting ----------------------------------------------------
+
+# compute AUC and create ROC
+roc_train_mx <- pROC::roc(mx_train$occ, as.numeric(pred_train_mx))
+roc_test_mx  <- pROC::roc(mx_test$occ,  as.numeric(pred_test_mx))
+
+# TODO: Using the area between the curves instead of substraction???
+# the gap of the ROC-curve between training and test is an indicator for overfitting: big gab --> overfitting
+auc_train_mx <- pROC::auc(roc_train_mx)
+auc_test_mx  <- pROC::auc(roc_test_mx)
+gap_mx       <- as.numeric(auc_train_mx - auc_test_mx)
+
+# plot train and test-ROC curve and write down AUC values and gap between ROC-curves
+plot(roc_train_mx, col = "blue")
+lines(roc_test_mx, col = "red")
+legend(
+  "bottomright", 
+  legend = c(
+    paste0("Train (AUC = ", round(auc_train_mx, 3), ")"),
+    paste0("Test  (AUC = ", round(auc_test_mx, 3),")"),
+    paste0("Gap   = ", round(gap_mx, 3))),
+  col = c("blue", "red", NA),
+  lwd = c(2, 2, NA),
+  bty = "n")
 
 
 #---- Predict to raster --------------------------------------------------------
+
+# extract relevant predictors
 bioclim_mx <- bioclim_data[[pred_cols]]
+
+# MaxEnt model using for prediction for each raster zell (Values between 0 and 1 (cloglog))
 model_maxnet_pred <- terra::predict(bioclim_mx, model_maxnet, type = "cloglog", na.rm = TRUE)
 plot(model_maxnet_pred, main = "Predicted Habitat Suitability (MaxNet)")
 
 
 
-par(mfrow = c(1, 2))
+
+################################################################################
+#-------------------------------------------------------------------------------
+#---- Random Forest Model ------------------------------------------------------
+#-------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+par(mfrow = c(2, 4))
 plot(model_glm_pred, main = "GLM Habitat Suitability")
 plot(model_maxnet_pred, main = "MaxEnt Habitat Suitability")
+plot(..., main = "...")
+plot(..., main = "...")
 par(mfrow = c(1, 1))
