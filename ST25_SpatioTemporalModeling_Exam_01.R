@@ -17,6 +17,7 @@ library(pROC)
 library(predicts)
 library(maxnet)
 library(randomForest)
+library(mgcv)
 
 #---- Download of "Oreamnos americanus (Blainville, 1816)" ---------------------
 
@@ -71,10 +72,10 @@ occ_data_filtered <- occ_data_filtered %>% select(c("decimalLongitude","decimalL
 #---- Define AOI ---------------------------------------------------------------
 
 # Extent of AOI
-xmin <- -160
-xmax <-  -100
-ymin <-   35
-ymax <-   65
+xmin <- -154
+xmax <-  -103
+ymin <-   37
+ymax <-   63
 
 aoi_ext <- ext(xmin, xmax, ymin, ymax)
 
@@ -109,7 +110,7 @@ path_data <- "C:/users/Duck/Documents/Studium/EAGLE/2_semester/3_Spatio_Temporal
 # alt <- elevation_global(res = 2.5, path = "data/")
 # bioclim_data <- c(bioclim_data, alt)
 # 
-# # Crop
+# Crop
 # bioclim_data <- crop(x = bioclim_data, y = aoi_ext)
 # 
 # # Save as GeoTIFF
@@ -120,6 +121,7 @@ path_data <- "C:/users/Duck/Documents/Studium/EAGLE/2_semester/3_Spatio_Temporal
 #** Or load data if already downloaded*
 bioclim_aoi_file <- file.path(path_data, "bioclim_AOI_2p5m.tif")
 bioclim_data <- rast(bioclim_aoi_file)
+
 #**############################################################################*
 
 plot(bioclim_data[[1]])
@@ -171,10 +173,10 @@ valnum <- do.call(cbind,valnum)
 # using pearson correlation, since the variables are metric and continuous
 cor_matrix <- cor(valnum, use = "complete.obs", method = "pearson")
 # plot correlation matrix
-corrplot(cor_matrix, method = "number", type = "upper", tl.cex = 0.4, number.cex = 0.7)
+corrplot(cor_matrix, method = "number", type = "upper", tl.cex = 0.4, number.cex = 0.75)
 
-# remove correlations >= 0.7, to reduce multicollinearity risk and make the model more stable
-to_remove <- findCorrelation(cor_matrix, cutoff = 0.70, names = TRUE)
+# remove correlations >= 0.75, to reduce multicollinearity risk and make the model more stable
+to_remove <- findCorrelation(cor_matrix, cutoff = 0.75, names = TRUE)
 all_vars <- names(bioclim_data)
 print(all_vars)
 
@@ -193,7 +195,7 @@ print(vars_without_elev)
 
 # generate 70% train and 30% test-data 
 # generating random training sample
-train_data <- sample(seq_len(nrow(goat)), size=round(0.7*nrow(goat)))
+train_data <- sample(seq_len(nrow(goat)), size=round(0.75*nrow(goat)))
 
 goat_train <-goat[train_data,]
 goat_test <- goat[-train_data,]
@@ -253,17 +255,16 @@ auc_train_glm <- auc(roc_train)
 auc_test_glm  <- auc(roc_test)
 print(c(AUC_train=as.numeric(auc_train_glm), AUC_test=as.numeric(auc_test_glm),
         gap=as.numeric(auc_train_glm-auc_test_glm)))
+gap_glm <- as.numeric(auc_train_glm - auc_test_glm)
 
 # plot train and test-ROC curve and write down AUC values and gap between ROC-curves
 plot(roc_train, col = "blue")
-lines(roc_test, col = "red")
-legend(
-  "bottomright", legend = c(
-    paste0("Train (AUC = ", round(auc_train_glm, 3), ")"),
-    paste0("Test  (AUC = ", round(auc_test_glm, 3), 
-           ", Gap = ", round(gap_glm, 3), ")")
-  ),
-  col = c("blue", "red"), lwd = 2)
+lines(roc_test,  col = "red")
+legend("bottomright",
+  legend = c(paste0("Train (AUC = ", round(auc_train_glm, 3), ")"),
+    paste0("Test  (AUC = ", round(auc_test_glm, 3), ")"),
+    paste0("Gap   = ", round(gap_glm, 3))),
+  col = c("blue", "red", NA),lwd = c(2, 2, NA), bty = "n")
 
 #---- Predict to raster --------------------------------------------------------
 
@@ -278,6 +279,55 @@ bioclim_sel   <- bioclim_sel[[intersect(pred_in_model, names(bioclim_sel))]]
 model_glm_pred <- terra::predict(object = bioclim_sel,model  = model_glm, type   = "response",na.rm  = TRUE)
 
 plot(model_glm_pred, main = "Predicted Habitat Suitability (GLM)")
+
+
+################################################################################
+#-------------------------------------------------------------------------------
+#---- Generalized Additive Model -----------------------------------------------
+#-------------------------------------------------------------------------------
+
+pred_cols <- intersect(filtered_var, names(goat_train))
+
+#
+var_gam <- as.formula(paste("occ ~", paste0("s(", filtered_var, ")", collapse = " + ")))
+
+# train GAM model
+model_gam <- gam(var_gam, data = goat_train, family = binomial)
+summary(model_gam)
+
+pred_train_gam <- predict(model_gam, newdata = goat_train, type = "response")
+pred_test_gam  <- predict(model_gam, newdata = goat_test,  type = "response")
+
+
+#---- Check for overfitting ----------------------------------------------------
+
+roc_train_gam <- pROC::roc(goat_train$occ, pred_train_gam)
+roc_test_gam  <- pROC::roc(goat_test$occ,  pred_test_gam)
+auc_train_gam <- pROC::auc(roc_train_gam)
+auc_test_gam  <- pROC::auc(roc_test_gam)
+gap_gam       <- as.numeric(auc_train_gam - auc_test_gam)
+
+plot(roc_train_gam, col = "blue", main = "ROC — GAM (Train vs. Test)")
+lines(roc_test_gam,  col = "red")
+legend("bottomright",
+       legend = c(
+         paste0("Train (AUC = ", round(auc_train_gam, 3), ")"),
+         paste0("Test  (AUC = ", round(auc_test_gam, 3), ")"),
+         paste0("Gap   = ", round(gap_gam, 3))),
+       col = c("blue","red", NA), lwd = c(2,2,NA), bty = "n")
+
+
+#---- Predict to raster --------------------------------------------------------
+
+bioclim_gam <- bioclim_data[[filtered_var]]
+
+vars_in_gam <- setdiff(all.vars(var_gam), "occ")
+vars_in_gam <- intersect(vars_in_gam, names(bioclim_gam))
+bioclim_gam <- bioclim_gam[[vars_in_gam]]
+
+model_gam_pred <- terra::predict(object = bioclim_gam, model= model_gam,type = "response",na.rm = TRUE)
+
+plot(model_gam_pred, main = "Predicted Habitat Suitability (GAM)")
 
 
 
@@ -409,9 +459,9 @@ plot(model_rf_pred, main = "Predicted Habitat Suitability (Random Forest)")
 
 
 
-par(mfrow = c(1, 3))
+par(mfrow = c(1, 4))
 plot(model_glm_pred, main = "GLM Habitat Suitability")
+plot(model_gam_pred, main = "GAM Habitat Suitability")
 plot(model_maxnet_pred, main = "MaxEnt Habitat Suitability")
 plot(model_rf_pred, main = "Random Forest Suitability")
-plot(..., main = "...")
 par(mfrow = c(1, 1))
