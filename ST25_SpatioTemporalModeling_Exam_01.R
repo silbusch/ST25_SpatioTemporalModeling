@@ -5,7 +5,7 @@
 library(readr)
 library(rgbif)
 library(dplyr)
-library(maps)
+#library(maps)
 library(terra)
 library(geodata)
 library(sf)
@@ -14,13 +14,13 @@ library(lattice)
 library(corrplot)
 library(caret)
 library(pROC)
-library(predicts)
+#library(predicts)
 library(maxnet)
 library(randomForest)
 library(mgcv)
-library(gbm)
+#library(gbm)
 library(splines)
-library(foreach)
+#library(foreach)
 library(gam)
 library(openxlsx)
 library(remotes)
@@ -29,7 +29,7 @@ library(blockCV)
 
 #---- Download of "Oreamnos americanus (Blainville, 1816)" ---------------------
 
-#**############################################################################*
+#*****************************************************************************#*
 #** Either first download of "Oreamnos americanus (Blainville, 1816)"...*
 
 # path <- setwd("....")
@@ -57,8 +57,8 @@ tmpdir   <- tempdir()
 unzip(path, files = "occurrence.txt", exdir = tmpdir, overwrite = TRUE)
 # load data
 occ_data <- read_tsv(file.path(tmpdir, "occurrence.txt"), show_col_types = FALSE)
-#**############################################################################*
-#*
+#*******************************************************************************
+
 
 
 
@@ -109,9 +109,8 @@ ggplot() +
 path_data <- "C:/users/Duck/Documents/Studium/EAGLE/2_semester/3_Spatio_Temporal_Modelling/ST25_SpatioTemporalModeling_Exam/ST25_SpatioTemporalModeling/data"
 
 #*******************************************************************************
-#*                                                                      ********
-#*                                                                      ********
 #** Either download bioclimatic variables and altitude data for the first time*
+#
 # bioclim_aoi_file <- file.path(path_data, "bioclim_AOI_2p5m.tif")
 # # DOwnload bioclimatic variables and altitude data
 # bioclim_data <- worldclim_global(var = "bio",
@@ -129,10 +128,10 @@ path_data <- "C:/users/Duck/Documents/Studium/EAGLE/2_semester/3_Spatio_Temporal
 #             overwrite = TRUE)
 
 #** Or load data if already downloaded*
+#*
 bioclim_aoi_file <- file.path(path_data, "bioclim_AOI_2p5m.tif")
 bioclim_data <- rast(bioclim_aoi_file)
-#*                                                                      ********
-#*                                                                      ********
+
 #*******************************************************************************
 
 plot(bioclim_data[[1]])
@@ -226,12 +225,10 @@ print(vars_without_elev)
 # vars_without_elev <- setdiff(keep_vars, elev_name)
 
 
-
 #---- Decision with or without elevation data ----------------------------------
 
 #*******************************************************************************
-#*                                                                      ********
-#** Decide whether the following models run with or without elevation   ********
+#** Decide whether the following models run with or without elevation *
 #** FALSE: without elevation*
 #** TRUE: with elevation*
 
@@ -242,8 +239,6 @@ if (elev) {
 } else {
   filtered_var <- vars_without_elev
 }
-
-#*                                                                      ********
 #*******************************************************************************
 
 #---- Generating test- and training data ---------------------------------------
@@ -302,327 +297,269 @@ cv <- blockCV::cv_spatial(
 
 folds <- cv$folds_list
 
-
-# test and training data
-
 ################################################################################
 ##         Model Area                                                         ##
 ################################################################################
+
+# result dataframe for all folds
+results_all <- data.frame()
+
+# create list to save prediction for every fold prediction of every model
+mean_preds <- list(GLM=NULL, GAM=NULL, MaxNet=NULL, RF=NULL, Ensemble=NULL)
+
+r_all <- bioclim_data[[filtered_var]]
+
+#** !!! the loop may take several minutes to complete !!!*
+for (i in seq_along(folds)) {
+  # outputs the current fold to show progress
+  cat("\n--- Fold", i, "---\n")
+  
+#---- create train and test data -----------------------------------------------
+  train_idx <- unlist(folds[[i]][[1]])
+  test_idx  <- unlist(folds[[i]][[2]])
+  
+  goat_train <- goat[train_idx, ]
+  goat_test  <- goat[test_idx, ]
+
+################################################################################
 #-------------------------------------------------------------------------------
 #---- Generalized Linear Model -------------------------------------------------
-#-------------------------------------------------------------------------------
-
-# generate model on training data
-var_glm <- as.formula(paste("occ ~", paste(filtered_var, collapse = " + ")))
-
-# selection of predictors
-model_glm <- step(glm(var_glm, family = binomial(link = "logit"), data = goat_train))
-
-summary(model_glm)
-
-# predict based on test data
-test_preds <- predict(model_glm, newdata = goat_test, type = "response")
-train_preds <- predict(model_glm, newdata = goat_train, type = "response")
-
-
-
+#------------------------------------------------------------------------------- 
+  
+  # formular for GLM
+  var_glm <- as.formula(paste("occ ~", paste(filtered_var, collapse = " + ")))
+  # stepwise selektion of variables
+  model_glm <- step(glm(var_glm, family = binomial(link = "logit"), data = goat_train))
+  
+  # prediction for train and test data
+  pred_train_glm <- predict(model_glm, newdata = goat_train, type = "response")
+  pred_test_glm  <- predict(model_glm, newdata = goat_test, type = "response")
+  
 #---- Check for overfitting ----------------------------------------------------
-
-# compute AUC and create ROC
-roc_test <- roc(goat_test$occ, test_preds)
-roc_train <- roc(goat_train$occ, train_preds)
-
-# the gap of the ROC-curve between training and test is an indicator for overfitting: big gab --> overfitting
-auc_train_glm <- auc(roc_train)
-auc_test_glm  <- auc(roc_test)
-print(c(AUC_train=as.numeric(auc_train_glm), AUC_test=as.numeric(auc_test_glm),
-        gap=as.numeric(auc_train_glm-auc_test_glm)))
-gap_glm <- as.numeric(auc_train_glm - auc_test_glm)
-
-# plot train and test-ROC curve and write down AUC values and gap between ROC-curves
-plot(roc_train, col = "blue")
-lines(roc_test,  col = "red")
-legend("bottomright",
-  legend = c(paste0("Train (AUC = ", round(auc_train_glm, 3), ")"),
-    paste0("Test  (AUC = ", round(auc_test_glm, 3), ")"),
-    paste0("Gap   = ", round(gap_glm, 3))),
-  col = c("blue", "red", NA),lwd = c(2, 2, NA), bty = "n")
-
-#---- Predict to raster --------------------------------------------------------
-
-# extract relevant predictors
-bioclim_sel <- bioclim_data[[filtered_var]]
-
-# using only predictors, that were actually used in the model
-pred_in_model <- attr(terms(model_glm), "term.labels")
-bioclim_sel   <- bioclim_sel[[intersect(pred_in_model, names(bioclim_sel))]]
-
-# prediction based on GLM-model
-model_glm_pred <- terra::predict(object = bioclim_sel,model  = model_glm, type   = "response",na.rm  = TRUE)
-
-plot(model_glm_pred, main = "Predicted Habitat Suitability (GLM)")
-
+  # compute AUC and create ROC
+  auc_train_glm <- pROC::auc(goat_train$occ, pred_train_glm)
+  auc_test_glm  <- pROC::auc(goat_test$occ,  pred_test_glm)
+  # the gap of the ROC-curve between training and test is an indicator for overfitting: big gab --> overfitting
+  gap_glm <- as.numeric(auc_train_glm - auc_test_glm)
+  
+#---- Predict to raster --------------------------------------------------------  
+  # using only predictors, that were actually used in the model
+  pred_in_model <- attr(terms(model_glm), "term.labels")
+  r_glm <- r_all[[intersect(pred_in_model, names(r_all))]]
+  # prediction to raster based on GLM-model
+  pred_r_glm <- terra::predict(r_glm, model_glm, type = "response", na.rm = TRUE)
+  
+  
+  
 
 ################################################################################
 #-------------------------------------------------------------------------------
 #---- Generalized Additive Model -----------------------------------------------
 #-------------------------------------------------------------------------------
-
-pred_cols <- intersect(filtered_var, names(goat_train))
-
-#
-var_gam <- as.formula(paste("occ ~", paste0("s(", filtered_var, ")", collapse = " + ")))
-
-# train GAM model
-model_gam <- gam(var_gam, data = goat_train, family = binomial)
-summary(model_gam)
-
-pred_train_gam <- predict(model_gam, newdata = goat_train, type = "response")
-pred_test_gam  <- predict(model_gam, newdata = goat_test,  type = "response")
-
-
+  
+  # formular for GAM
+  var_gam <- as.formula(paste("occ ~", paste0("s(", filtered_var, ")", collapse = " + ")))
+  model_gam <- mgcv::gam(var_gam, data = goat_train, family = binomial)
+  
+  # prediction for train and test data
+  pred_train_gam <- predict(model_gam, newdata = goat_train, type = "response")
+  pred_test_gam  <- predict(model_gam, newdata = goat_test, type = "response")
 #---- Check for overfitting ----------------------------------------------------
-
-roc_train_gam <- pROC::roc(goat_train$occ, pred_train_gam)
-roc_test_gam  <- pROC::roc(goat_test$occ,  pred_test_gam)
-auc_train_gam <- pROC::auc(roc_train_gam)
-auc_test_gam  <- pROC::auc(roc_test_gam)
-gap_gam       <- as.numeric(auc_train_gam - auc_test_gam)
-
-plot(roc_train_gam, col = "blue", main = "ROC — GAM (Train vs. Test)")
-lines(roc_test_gam,  col = "red")
-legend("bottomright",
-       legend = c(
-         paste0("Train (AUC = ", round(auc_train_gam, 3), ")"),
-         paste0("Test  (AUC = ", round(auc_test_gam, 3), ")"),
-         paste0("Gap   = ", round(gap_gam, 3))),
-       col = c("blue","red", NA), lwd = c(2,2,NA), bty = "n")
-
+  
+  auc_train_gam <- pROC::auc(goat_train$occ, pred_train_gam)
+  auc_test_gam  <- pROC::auc(goat_test$occ,  pred_test_gam)
+  gap_gam <- as.numeric(auc_train_gam - auc_test_gam)
 
 #---- Predict to raster --------------------------------------------------------
-
-bioclim_gam <- bioclim_data[[filtered_var]]
-
-vars_in_gam <- setdiff(all.vars(var_gam), "occ")
-vars_in_gam <- intersect(vars_in_gam, names(bioclim_gam))
-bioclim_gam <- bioclim_gam[[vars_in_gam]]
-
-model_gam_pred <- terra::predict(object = bioclim_gam, model= model_gam,type = "response",na.rm = TRUE)
-
-plot(model_gam_pred, main = "Predicted Habitat Suitability (GAM)")
+  vars_in_gam <- setdiff(all.vars(var_gam), "occ")
+  r_gam <- r_all[[intersect(vars_in_gam, names(r_all))]]
+  pred_r_gam <- terra::predict(r_gam, model_gam, type = "response", na.rm = TRUE)
 
 
-
-
+  
+  
 ################################################################################
 #-------------------------------------------------------------------------------
 #---- Maximum Entropy Model ----------------------------------------------------
 #-------------------------------------------------------------------------------
-
-# filtering for only columns, which were used in the GLM-model and deleting a few columns with NA-values
-pred_cols <- intersect(filtered_var, names(goat))
-
-mx_train <- goat_train[, c("occ", pred_cols)]
-mx_train <- mx_train[complete.cases(mx_train[, pred_cols]), ]
-mx_test  <- goat_test[,  c("occ", pred_cols)]
-mx_test  <- mx_test[complete.cases(mx_test[, pred_cols]), ]
-
-# formular for maxnet model
-fmx <- maxnet.formula(p = mx_train$occ, data = mx_train[, pred_cols], classes = "lqph")
-# maxnet model 
-model_maxnet <- maxnet(p= mx_train$occ, data = mx_train[, pred_cols], f= fmx)
-print(model_maxnet)
-
-pred_train_mx <- predict(model_maxnet, newdata = mx_train[, pred_cols], type = "cloglog")
-pred_test_mx  <- predict(model_maxnet, newdata = mx_test[,  pred_cols], type = "cloglog")
-
-
+  
+  # filtering for only columns, which were used in the GLM-model and deleting a few columns with NA-values
+  pred_cols <- intersect(filtered_var, names(goat_train))
+  
+  # make again sure that NAs are removed, otherwise the model wil fail
+  mx_train <- goat_train[, c("occ", pred_cols)]
+  mx_train <- mx_train[complete.cases(mx_train), ]
+  mx_test  <- goat_test[,  c("occ", pred_cols)]
+  mx_test  <- mx_test[complete.cases(mx_test), ]
+  
+  # formular for maxnet model
+  fmx <- maxnet.formula(p = mx_train$occ, data = mx_train[, pred_cols], classes = "lqph")
+  # maxnet model 
+  model_maxnet <- maxnet(p= mx_train$occ, data = mx_train[, pred_cols], f= fmx)
+  
+  pred_train_mx <- predict(model_maxnet, newdata = mx_train[, pred_cols], type = "cloglog")
+  pred_test_mx  <- predict(model_maxnet, newdata = mx_test[,  pred_cols], type = "cloglog")
+  
 #---- Check for overfitting ----------------------------------------------------
+  
+  auc_train_mx <- pROC::auc(mx_train$occ, as.numeric(pred_train_mx))
+  auc_test_mx  <- pROC::auc(mx_test$occ,  as.numeric(pred_test_mx))
+  gap_mx <- as.numeric(auc_train_mx - auc_test_mx)
+  
+  # extract relevant predictors
+  r_mx <- r_all[[pred_cols]]
+  
+  # MaxEnt model using for prediction for each raster zell (Values between 0 and 1 (cloglog))
+  pred_r_mx <- terra::predict(r_mx, model_maxnet, type = "cloglog", na.rm = TRUE)
 
-# compute AUC and create ROC
-roc_train_mx <- pROC::roc(mx_train$occ, as.numeric(pred_train_mx))
-roc_test_mx  <- pROC::roc(mx_test$occ,  as.numeric(pred_test_mx))
-
-# TODO: Using the area between the curves instead of substraction???
-# the gap of the ROC-curve between training and test is an indicator for overfitting: big gab --> overfitting
-auc_train_mx <- pROC::auc(roc_train_mx)
-auc_test_mx  <- pROC::auc(roc_test_mx)
-gap_mx       <- as.numeric(auc_train_mx - auc_test_mx)
-
-# plot train and test-ROC curve and write down AUC values and gap between ROC-curves
-plot(roc_train_mx, col = "blue")
-lines(roc_test_mx, col = "red")
-legend(
-  "bottomright", 
-  legend = c(
-    paste0("Train (AUC = ", round(auc_train_mx, 3), ")"),
-    paste0("Test  (AUC = ", round(auc_test_mx, 3),")"),
-    paste0("Gap   = ", round(gap_mx, 3))),
-  col = c("blue", "red", NA),
-  lwd = c(2, 2, NA),
-  bty = "n")
-
-
-#---- Predict to raster --------------------------------------------------------
-
-# extract relevant predictors
-bioclim_mx <- bioclim_data[[pred_cols]]
-
-# MaxEnt model using for prediction for each raster zell (Values between 0 and 1 (cloglog))
-model_maxnet_pred <- terra::predict(bioclim_mx, model_maxnet, type = "cloglog", na.rm = TRUE)
-plot(model_maxnet_pred, main = "Predicted Habitat Suitability (MaxNet)")
-
-
-
-
+  
+  
+ 
 ################################################################################
 #-------------------------------------------------------------------------------
 #---- Random Forest Model ------------------------------------------------------
 #-------------------------------------------------------------------------------
-
 # Random Forest model with Bootstrap-Sampling 
-# saving the state of the random number generator to use an individual set.seed() in the RF model
-old_seed <- .Random.seed
-
-# same as before
-pred_cols <- intersect(filtered_var, names(goat_train))
-
-rf_train <- goat_train[, c("occ", pred_cols)]
-rf_test  <- goat_test[,  c("occ", pred_cols)]
-
-rf_train <- rf_train[complete.cases(rf_train), ]
-rf_test  <- rf_test[complete.cases(rf_test), ]
-
-rf_train$occ <- factor(rf_train$occ, levels = c(0, 1))
-rf_test$occ  <- factor(rf_test$occ,  levels = c(0, 1))
-
-
-set.seed(50)
-model_rf <- randomForest(occ ~ ., data = rf_train, ntree = 500, importance = TRUE)
-# model check:
-print(model_rf)
-model_rf$ntree
-model_rf$mtry 
-importance(model_rf)
-
-#reset seed
-.Random.seed <- old_seed
-
-
+  rf_train <- goat_train[, c("occ", pred_cols)]
+  rf_test  <- goat_test[,  c("occ", pred_cols)]
+  rf_train <- rf_train[complete.cases(rf_train), ]
+  rf_test  <- rf_test[complete.cases(rf_test), ]
+  rf_train$occ <- factor(rf_train$occ, levels = c(0, 1))
+  rf_test$occ  <- factor(rf_test$occ,  levels = c(0, 1))
+  
+  #RF- model with 500 trees (more could lead to overfitting), bootstrap per tree
+  model_rf <- randomForest(occ ~ ., data = rf_train, ntree = 500, importance = FALSE)
+  
 #---- Check for overfitting ----------------------------------------------------
-
-pred_train_rf_oob <- predict(model_rf, type = "prob")[, "1"]
-pred_test_rf      <- predict(model_rf, newdata = rf_test, type = "prob")[, "1"]
-
-roc_train_rf <- pROC::roc(rf_train$occ, as.numeric(pred_train_rf_oob))
-roc_test_rf  <- pROC::roc(rf_test$occ,  as.numeric(pred_test_rf))
-
-auc_train_rf <- pROC::auc(roc_train_rf)
-auc_test_rf  <- pROC::auc(roc_test_rf)
-gap_rf       <- as.numeric(auc_train_rf - auc_test_rf)
-
-plot(roc_train_rf, col = "blue", main = "Random Forest (OOB vs. Test)")
-lines(roc_test_rf,  col = "red")
-legend("bottomright",
-       legend = c(
-         paste0("Train/OOB (AUC = ", round(auc_train_rf, 3), ")"),
-         paste0("Test (AUC = ", round(auc_test_rf, 3), ")"),
-         paste0("Gap= ", round(gap_rf, 3))),
-       col = c("blue","red", NA), lwd = c(2,2,NA), bty = "n")
-
+  
+  pred_train_rf <- predict(model_rf, type = "prob")[, "1"]
+  pred_test_rf  <- predict(model_rf, newdata = rf_test, type = "prob")[, "1"]
+  auc_train_rf <- pROC::auc(rf_train$occ, as.numeric(pred_train_rf))
+  auc_test_rf  <- pROC::auc(rf_test$occ,  as.numeric(pred_test_rf))
+  gap_rf <- as.numeric(auc_train_rf - auc_test_rf)
 
 #---- Predict to raster --------------------------------------------------------
-
-bioclim_rf <- bioclim_data[[pred_cols]]
-
-model_rf_pred <- terra::predict(bioclim_rf, model_rf, type = "prob", index = 2, na.rm = TRUE)
-plot(model_rf_pred, main = "Predicted Habitat Suitability (Random Forest)")
-
-
-
-
+  
+  r_rf <- r_all[[pred_cols]]
+  
+  pred_r_rf <- terra::predict(r_rf, model_rf, type = "prob", index = 2, na.rm = TRUE)
+  
+  
+  
+  
 ################################################################################
 #-------------------------------------------------------------------------------
 #---- Ensemble Model -----------------------------------------------------------
 #-------------------------------------------------------------------------------
+  
+  # mean value for all predicted test and train data
+  ens_train <- rowMeans(cbind(
+    as.numeric(pred_train_glm),
+    as.numeric(pred_train_gam),
+    as.numeric(pred_train_mx),
+    as.numeric(pred_train_rf)), na.rm = TRUE)
+  
+  ens_test <- rowMeans(cbind(
+    as.numeric(pred_test_glm),
+    as.numeric(pred_test_gam),
+    as.numeric(pred_test_mx),
+    as.numeric(pred_test_rf)), na.rm = TRUE)
+  
+  # Roc, Auc and Gap
+  auc_train_ens <- pROC::auc(goat_train$occ, ens_train)
+  auc_test_ens  <- pROC::auc(goat_test$occ,  ens_test)
+  gap_ens <- as.numeric(auc_train_ens - auc_test_ens)
+  
+  #All grids of the model predictions for the [i]-fold run are added together 
+  # and their cell values are divided by four to average the result.
+  pred_r_ens <- (pred_r_glm + pred_r_gam + pred_r_mx + pred_r_rf) / 4
+  
+################################################################################
+#-------------------------------------------------------------------------------
+#---- Saving all results -------------------------------------------------------
+#------------------------------------------------------------------------------- 
 
-# mean value for all predicted test and train data
-ens_test <- rowMeans(cbind(
-  as.numeric(test_preds),
-  as.numeric(pred_test_gam),
-  as.numeric(pred_test_mx),
-  as.numeric(pred_test_rf)
-), na.rm = TRUE)
+  # saving all AUC and Gap results 
+  results_all <- rbind(results_all,
+    data.frame(Fold = i, Model = "GLM", AUC_train = auc_train_glm, AUC_test = auc_test_glm, Gap = gap_glm),
+    data.frame(Fold = i, Model = "GAM", AUC_train = auc_train_gam, AUC_test = auc_test_gam, Gap = gap_gam),
+    data.frame(Fold = i, Model = "MaxNet", AUC_train = auc_train_mx,  AUC_test = auc_test_mx,  Gap = gap_mx),
+    data.frame(Fold = i, Model = "RF", AUC_train = auc_train_rf,  AUC_test = auc_test_rf,  Gap = gap_rf),
+    data.frame(Fold = i, Model = "Ensemble", AUC_train = auc_train_ens, AUC_test = auc_test_ens, Gap = gap_ens))
+ 
+  # saving alls [i] rasters, add them together
+  if (is.null(mean_preds$GLM)) {
+    mean_preds$GLM      <- pred_r_glm
+    mean_preds$GAM      <- pred_r_gam
+    mean_preds$MaxNet   <- pred_r_mx
+    mean_preds$RF       <- pred_r_rf
+    mean_preds$Ensemble <- pred_r_ens
+  } else {
+    mean_preds$GLM      <- mean_preds$GLM      + pred_r_glm
+    mean_preds$GAM      <- mean_preds$GAM      + pred_r_gam
+    mean_preds$MaxNet   <- mean_preds$MaxNet   + pred_r_mx
+    mean_preds$RF       <- mean_preds$RF       + pred_r_rf
+    mean_preds$Ensemble <- mean_preds$Ensemble + pred_r_ens
+  }
+}
 
-ens_train <- rowMeans(cbind(
-  as.numeric(train_preds),
-  as.numeric(pred_train_gam),
-  as.numeric(pred_train_mx),
-  as.numeric(pred_train_rf_oob)
-), na.rm = TRUE)
+################################################################################
+##         Table with all AUC Values                                          ##
+################################################################################
 
-# Roc, Auc and Gap
-roc_train_ens <- roc(goat_train$occ, ens_train)
-roc_test_ens  <- roc(goat_test$occ,  ens_test)
+summary_results <- results_all %>%
+  group_by(Model) %>%
+  summarise(
+    Mean_AUC_train = mean(AUC_train),
+    SD_AUC_train   = sd(AUC_train),
+    Mean_AUC_test  = mean(AUC_test),
+    SD_AUC_test    = sd(AUC_test),
+    Mean_Gap       = mean(Gap),
+    SD_Gap         = sd(Gap),
+    .groups = "drop"  )
 
-auc_train_ens <- auc(roc_train_ens)
-auc_test_ens  <- auc(roc_test_ens)
-gap_ens       <- as.numeric(auc_train_ens - auc_test_ens)
+print(summary_results)
 
-plot(roc_train_ens, col="blue", main="ROC — Ensemble (Train vs. Test)")
-lines(roc_test_ens, col="red")
-legend("bottomright",
-       legend = c(
-         paste0("Train (AUC = ", round(auc_train_ens, 3), ")"),
-         paste0("Test  (AUC = ", round(auc_test_ens, 3), ")"),
-         paste0("Gap   = ", round(gap_ens, 3))
-       ),
-       col=c("blue","red",NA), lwd=c(2,2,NA), bty="n")
+summary_results_rounded <- summary_results %>%
+  mutate(across(where(is.numeric), ~ round(.x, 4)))
+
+# creating table depending if elev = TRUE or FALSE
+file_suffix <- if (elev) "with_elev" else "without_elev"
+# individual naming
+file_name   <- paste0("AUC_results_", file_suffix, ".xlsx")
+
+# create .xlsx table in working directory
+openxlsx::write.xlsx(summary_results_rounded, file = file_name, rowNames = FALSE)
+cat("Table got saved as:", file_name, "\n")
+
+################################################################################
+##         All predicted rasters                                              ##
+################################################################################
+
+# calculating the average prediction raster for each model
+k_folds <- length(folds)
+
+for (m in names(mean_preds)) {
+  mean_preds[[m]] <- mean_preds[[m]] / k_folds}
+
+plot_suffix <- if (elev) "with_elev" else "without_elev"
+mean_plot_file <- paste0("Suitability_models_mean_", plot_suffix, ".png")
+
+png(filename = mean_plot_file, width = 2000, height = 1500, res = 150)
+
+par(mfrow = c(2, 3))
+plot(mean_preds$GLM,      main = "Mean Prediction (GLM)")
+plot(mean_preds$GAM,      main = "Mean Prediction (GAM)")
+plot(mean_preds$MaxNet,   main = "Mean Prediction (MaxNet)")
+plot(mean_preds$RF,       main = "Mean Prediction (RF)")
+plot(mean_preds$Ensemble, main = "Mean Prediction (Ensemble)")
+mtext("Mean Model Prediction", outer = TRUE, line = -2, cex = 1.5)
+par(mfrow = c(1, 1))
+dev.off()
+
+cat("Plot got saved as:", mean_plot_file, "\n")
 
 
-#---- Predict to raster --------------------------------------------------------
-#mean value of all predictions
-model_ens_pred <- (model_glm_pred + model_gam_pred + model_maxnet_pred + model_rf_pred) / 4
-
-plot(model_ens_pred, main = "Predicted Habitat Suitability, Mean Ensemble")
-
-
-
-
-# ################################################################################
-# #-------------------------------------------------------------------------------
-# #---- Compare Models -----------------------------------------------------------
-# #-------------------------------------------------------------------------------
-# # PROBLEM: Cate has no methods for MaxEnt
-# # Prep training data
-# cv_data <- goat[, c("occ", filtered_var)]
-# cv_data <- cv_data[complete.cases(cv_data), ]
-# 
-# # caret requires labels to be factors with levels
-# cv_data$occ <- factor(ifelse(cv_data$occ == 1, "Presence", "Absence"), levels = c("Presence", "Absence"))
-# 
-# # cross validation (10-times (collect AUC-values for 10 folds)) 
-# ctrl <- trainControl(method = "cv", number = 10, classProbs = TRUE, summaryFunction = twoClassSummary, savePredictions = "final")
-# 
-# old_seed <- .Random.seed
-# set.seed(50)
-# 
-# models_cv <- list(
-#   glm = train(occ ~ ., data = cv_data, method = "glm",
-#               family = binomial, trControl = ctrl, metric = "ROC"),
-#   gam = train(occ ~ ., data = cv_data, method = "gam",
-#               trControl = ctrl, metric = "ROC"),
-#   rf  = train(occ ~ ., data = cv_data, method = "rf",
-#               trControl = ctrl, metric = "ROC"))
-# 
-# .Random.seed <- old_seed
-# 
-# # saving metrics (AUC-Values) for every train fold of every model)
-# resamps <- caret::resamples(models_cv)
-# # compare boxplots of AUCs
-# bwplot(resamps, metric = "ROC", main = "Model Comparison (AUC)")
-# 
-# 
 ################################################################################
 #-------------------------------------------------------------------------------
 #---- Threshold Model ----------------------------------------------------------
@@ -631,113 +568,52 @@ plot(model_ens_pred, main = "Predicted Habitat Suitability, Mean Ensemble")
 # combined from all models. So, the locations where all models predict a very
 # high probability of occurrence of the Mountain Goat.
 # The condition for identifying a grid cell as a potential habitat is that at
-# least three of the four models have a prediction value of >= 0.75.
+# least three of the four models have a prediction value of >= 0.7.
 
 # threshold
 thr <- 0.70
 
-# stacking the four main models
-preds <- c(model_glm_pred, model_gam_pred, model_rf_pred, model_maxnet_pred)
-names(preds) <- c("GLM","GAM","RF","MaxEnt")
+# binary raster
+rf_bin <- terra::ifel(mean_preds$RF >= thr, 1, 0)
+
+glm_bin <- terra::ifel(mean_preds$GLM >= thr, 1, 0)
+gam_bin <- terra::ifel(mean_preds$GAM >= thr, 1, 0)
+mx_bin  <- terra::ifel(mean_preds$MaxNet >= thr, 1, 0)
+ens_bin <- terra::ifel(mean_preds$Ensemble >= thr, 1, 0)
 
 # count cells with valid value
-hits <- app(preds, fun = function(x) sum(x >= thr, na.rm = TRUE))
-habitat_bin <- ifel(hits >= 3, 1, 0)
+hits <- glm_bin + gam_bin + rf_bin + mx_bin
+consensus_bin <- terra::ifel(hits >= 3, 1, 0)
 
-levels(habitat_bin) <- data.frame(ID = c(0,1), class = c("Probably no habitat", "Habitat"))
-
-plot(habitat_bin, main = "Consensus Habitat (≥3 models with predicted value ≥0.75)",
-     col = c("grey80", "darkgreen"), legend = FALSE)
-legend("bottomleft",
-       legend = c("Probably no habitat", "Habitat"),
-       fill   = c("grey80", "darkgreen"),
-       bty    = "n")
-
-#### Kicking out the GLM model
-
-# stacking the four main models
-preds_without_glm <- c( model_gam_pred, model_rf_pred, model_maxnet_pred)
-names(preds_without_glm) <- c("GAM","RF","MaxEnt")
-
-# count cells with valid value
-hits_2 <- app(preds_without_glm, fun = function(x) sum(x >= thr, na.rm = TRUE))
-habitat_bin_2 <- ifel(hits >= 2, 1, 0)
-
-levels(habitat_bin_2) <- data.frame(ID = c(0,1), class = c("Probably no habitat", "Habitat"))
-
-plot(habitat_bin_2, main = "Consensus Habitat (≥2 models with predicted value ≥0.75)",
-     col = c("grey80", "darkgreen"), legend = FALSE)
-plot(st_geometry(world_sf), add = TRUE, col = "transparent", border = "grey50", lwd = 0.1)
-legend("bottomleft",
-       legend = c("Probably no habitat", "Habitat"),
-       fill   = c("grey80", "darkgreen"),
-       bty    = "n")
-
-
-
-
-################################################################################
-##         All predicted rasters                                              ##
-################################################################################
-
+# individual suffix
 plot_suffix <- if (elev) "with_elev" else "without_elev"
-plot_file   <- paste0("Suitability_models_", plot_suffix, ".png")
+threshold_plot_file <- paste0("Threshold_models_mean_", plot_suffix, ".png")
 
-png(filename = plot_file, width = 2000, height = 1500, res = 150)
+png(filename = threshold_plot_file, width = 2000, height = 1500, res = 150)
+
+par(mfrow = c(2, 3), oma = c(0, 0, 4, 12))
 
 par(mfrow = c(2, 3))
-plot(model_glm_pred, main = "GLM Habitat Suitability")
-plot(model_gam_pred, main = "GAM Habitat Suitability")
-plot(model_maxnet_pred, main = "MaxEnt Habitat Suitability")
-plot(model_rf_pred, main = "Random Forest Suitability")
-plot(model_ens_pred, main = "Predicted Habitat Suitability, Mean Ensemble")
+plot(glm_bin, main = paste0("GLM ≥ ", thr), col = c("grey80","darkgreen"), legend = FALSE)
+plot(gam_bin, main = paste0("GAM ≥ ", thr), col = c("grey80","darkgreen"), legend = FALSE)
+plot(mx_bin,  main = paste0("MaxNet ≥ ", thr), col = c("grey80","darkgreen"), legend = FALSE)
+plot(rf_bin,  main = paste0("RF ≥ ", thr), col = c("grey80","darkgreen"), legend = FALSE)
+plot(ens_bin, main = paste0("Ensemble ≥ ", thr), col = c("grey80","darkgreen"), legend = FALSE)
+plot(consensus_bin, main = paste0("Consensus ≥ ", thr, " (≥3 models)"), col = c("grey80","red"), legend = FALSE)
+par(xpd = NA)
+cols <- c("grey80", "red")
+legend("right", legend = c("Probably no habitat", "Very likely habitat"), fill = cols,
+       border = "black", inset = -0.4, bty = "n", cex = 1)
+mtext("Threshold (prediction values ≥ 0.7", outer = TRUE, line = -2, cex = 1.5)
 par(mfrow = c(1, 1))
-
 dev.off()
-cat("Plot got saved as:", plot_file, "\n")
 
-
+cat("Threshold maps saved as:", threshold_plot_file, "\n")
 
 
 ################################################################################
-##         Table with all AUC Values                                          ##
+##         model differences                                                  ##
 ################################################################################
 
-results <- data.frame(
-  Model     = c("GLM", "GAM", "MaxEnt", "Random Forest", "Ensemble"),
-  AUC_train = round(c(
-    as.numeric(auc_train_glm),
-    as.numeric(auc_train_gam),
-    as.numeric(auc_train_mx),
-    as.numeric(auc_train_rf),
-    as.numeric(auc_train_ens)
-  ), 4),
-  AUC_test  = round(c(
-    as.numeric(auc_test_glm),
-    as.numeric(auc_test_gam),
-    as.numeric(auc_test_mx),
-    as.numeric(auc_test_rf),
-    as.numeric(auc_test_ens)
-  ), 4)
-)
-
-results$GAP <- round(results$AUC_train - results$AUC_test, 4)
-
-# creating table depending if elev = TRUE or FALSE
-if (elev) {
-  results_with_elev <- results
-} else {
-  results_without_elev <- results}
-
-# individual naming
-file_suffix <- if (elev) "with_elev" else "without_elev"
-file_name   <- paste0("AUC_results_", file_suffix, ".xlsx")
-
-# create .xlsx table in working directory
-write.xlsx(results, file = file_name, rowNames = FALSE)
-cat("Table got saved as:", file_name, "\n")
-
-
-# TODO: Plot achsenbeschriftung long und lat, legendenbeschriftung, irgendwie richtigen plot machen, vor allem gleiche skalierung der farbe
-# TODO: besseren threshold plot auch noch hinzufügen
-# TODO: interpret model summary
+terra::global(mean_preds$MaxNet, fun = mean, na.rm = TRUE)
+terra::global(mean_preds$MaxNet, fun = quantile, probs = seq(0, 1, 0.25), na.rm = TRUE)
