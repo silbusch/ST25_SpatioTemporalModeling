@@ -23,6 +23,9 @@ library(splines)
 library(foreach)
 library(gam)
 library(openxlsx)
+library(remotes)
+remotes::install_github("rvalavi/blockCV", dependencies = TRUE)
+library(blockCV)
 
 #---- Download of "Oreamnos americanus (Blainville, 1816)" ---------------------
 
@@ -183,7 +186,7 @@ cor_matrix <- cor(valnum, use = "complete.obs", method = "pearson")
 # plot correlation matrix
 corrplot(cor_matrix, method = "number", type = "upper", tl.cex = 0.4, number.cex = 0.7)
 
-# remove correlations >= 0.75, to reduce multicollinearity risk and make the model more stable
+# remove correlations >= 0.70, to reduce multicollinearity risk and make the model more stable
 to_remove <- findCorrelation(cor_matrix, cutoff = 0.7, names = TRUE)
 all_vars <- names(bioclim_data)
 print(all_vars)
@@ -223,21 +226,6 @@ print(vars_without_elev)
 # vars_without_elev <- setdiff(keep_vars, elev_name)
 
 
-#---- Generating test- and training data ---------------------------------------
-
-# generate 70% train and 30% test-data 
-# generating random training sample
-train_data <- sample(seq_len(nrow(goat)), size=round(0.7*nrow(goat)))
-
-goat_train <-goat[train_data,]
-goat_test <- goat[-train_data,]
-
-# checking the balance between presence and background points
-print(table(goat_train$occ))
-print(table(goat_test$occ))
-
-
-
 
 #---- Decision with or without elevation data ----------------------------------
 
@@ -254,8 +242,68 @@ if (elev) {
 } else {
   filtered_var <- vars_without_elev
 }
+
 #*                                                                      ********
 #*******************************************************************************
+
+#---- Generating test- and training data ---------------------------------------
+
+#** The 70/30 split has the risk of spatial autocorrelation, so blockCV is used*
+
+# # generate 70% train and 30% test-data 
+# # generating random training sample
+# train_data <- sample(seq_len(nrow(goat)), size=round(0.7*nrow(goat)))
+# 
+# goat_train <-goat[train_data,]
+# goat_test <- goat[-train_data,]
+# 
+# # checking the balance between presence and background points
+# print(table(goat_train$occ))
+# print(table(goat_test$occ))
+
+
+#---- Block Cross Validation ---------------------------------------------------
+
+# To account for the effect of spatial autocorrelation due to closely located
+# test and training data, blockCV is used to create spatially seperated folds. 
+
+goat$decimalLongitude <- as.numeric(goat$decimalLongitude)
+goat$decimalLatitude  <- as.numeric(goat$decimalLatitude)
+
+# points as sf-object and taking crs
+goat_sf <- st_as_sf(
+  goat,
+  coords = c("decimalLongitude", "decimalLatitude"),
+  crs = 4326,
+  remove = FALSE)
+
+bioclim_sel <- bioclim_data[[filtered_var]]
+
+# setting block size manually, cause automatic setting use of the "cv_spatial_autocor"
+# function led to overly large blocks, also after repeatedly trying out different variables
+size_m <- 200000  
+
+# The presence and 5000 pseudo points are not distributed randomly, but are now 
+# divided up based on the hexagons in training or test data.
+old_seed <- .Random.seed
+set.seed(50)
+cv <- blockCV::cv_spatial(
+  x = goat_sf,
+  column = "occ",
+  r = bioclim_sel,
+  k = 10,
+  size = size_m,
+  hexagon = TRUE,
+  selection = "random",
+  iteration = 100,
+  plot = TRUE
+)
+.Random.seed <- old_seed
+
+folds <- cv$folds_list
+
+
+# test and training data
 
 ################################################################################
 ##         Model Area                                                         ##
@@ -648,6 +696,9 @@ par(mfrow = c(1, 1))
 dev.off()
 cat("Plot got saved as:", plot_file, "\n")
 
+
+
+
 ################################################################################
 ##         Table with all AUC Values                                          ##
 ################################################################################
@@ -687,7 +738,6 @@ write.xlsx(results, file = file_name, rowNames = FALSE)
 cat("Table got saved as:", file_name, "\n")
 
 
-# TODO: GLCM
-# TODO: Plot achsenbeschriftung long und lat, legendenbeschriftung, irgendwie richtigen plot machen
+# TODO: Plot achsenbeschriftung long und lat, legendenbeschriftung, irgendwie richtigen plot machen, vor allem gleiche skalierung der farbe
 # TODO: besseren threshold plot auch noch hinzufügen
 # TODO: interpret model summary
