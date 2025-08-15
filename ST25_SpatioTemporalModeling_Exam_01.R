@@ -26,6 +26,7 @@ library(openxlsx)
 library(remotes)
 remotes::install_github("rvalavi/blockCV", dependencies = TRUE)
 library(blockCV)
+library(scales)
 
 #---- Download of "Oreamnos americanus (Blainville, 1816)" ---------------------
 
@@ -614,6 +615,68 @@ cat("Threshold maps saved as:", threshold_plot_file, "\n")
 ################################################################################
 ##         model differences                                                  ##
 ################################################################################
+# comparing the predicted results 
 
-terra::global(mean_preds$MaxNet, fun = mean, na.rm = TRUE)
-terra::global(mean_preds$MaxNet, fun = quantile, probs = seq(0, 1, 0.25), na.rm = TRUE)
+# stacking mean-models
+r_stack <- c(mean_preds$GLM, mean_preds$GAM, mean_preds$MaxNet, mean_preds$RF)
+names(r_stack) <- c("GLM","GAM","MaxNet","RF")
+
+
+#---- Standard deviation -------------------------------------------------------
+# standard deviation raster for each cell
+r_sd <- app(r_stack, fun = sd, na.rm = TRUE)
+
+plot_suffix <- if (elev) "with_elev" else "without_elev"
+sd_plot_file <- paste0("SD_between_models_", plot_suffix, ".png")
+
+# save in working directory
+png(filename = sd_plot_file, width = 1600, height = 1200, res = 150)
+plot(r_sd, main = "Standard deviation of GLM, GAM, MaxNet, RF")
+dev.off()
+cat("Standard deviation raster saved as:", sd_plot_file, "\n")
+
+
+# histogramm
+vals <- as.vector(terra::values(r_sd, na.rm = TRUE))
+
+hist_plot_file <- paste0("SD_histogram_", plot_suffix, ".png")
+
+sd_hist <- ggplot(data.frame(SD = vals), aes(x = SD)) +
+  geom_histogram(binwidth = 0.01, fill = "grey", color = "black") +
+  scale_x_continuous(
+    breaks = seq(0, 0.5, by = 0.05),) +
+  scale_y_continuous(labels = label_comma()) +
+  labs(title = "Histogram of the standard deviation",
+       x = "Standard deviation",
+       y = "Number of grid cells")
+
+# save in working directory
+png(filename = hist_plot_file, width = 1600, height = 1100, res = 150)
+print(sd_hist)
+dev.off()
+cat("SD histogram saved as:", hist_plot_file, "\n")
+
+#---- spatial korrelation ------------------------------------------------------
+
+set.seed(50)
+smp_vals <- spatSample(r_stack, size = 50000, method = "random", na.rm = TRUE, as.points = FALSE, values = TRUE)
+cmat <- cor(as.data.frame(smp_vals), use = "pairwise.complete.obs")
+
+# save correlation matrix as png
+corr_png_file <- paste0("Model_prediction_correlation_", plot_suffix, ".png")
+
+png(filename = corr_png_file, width = 1400, height = 1200, res = 150)
+
+par(oma = c(0, 0, 4, 0))
+corrplot::corrplot(cmat, method = "color", type = "full", addCoef.col = "black",
+                   tl.col = "black", tl.srt = 45, number.cex = 0.8, cl.pos = "r")
+title("Correlation of mean model predictions", line = 3.5, cex.main = 1.4)
+
+dev.off()
+cat("Heatmap gespeichert:", corr_png_file, "\n")
+
+#         GLM       GAM    MaxNet        RF
+# GLM    1.0000000 0.6900610 0.7961983 0.5772618
+# GAM    0.6900610 1.0000000 0.8921212 0.6841287
+# MaxNet 0.7961983 0.8921212 1.0000000 0.6863166
+# RF     0.5772618 0.6841287 0.6863166 1.0000000
