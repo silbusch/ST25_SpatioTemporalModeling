@@ -691,3 +691,4 @@ title("Correlation of mean model predictions", line = 3.5, cex.main = 1.4)
 dev.off()
 
 cat("Heatmap gespeichert:", corr_png_file, "\n")
+
