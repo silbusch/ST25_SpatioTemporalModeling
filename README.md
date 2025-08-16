@@ -91,13 +91,25 @@ The standard deviation between the model predictions. 0 = complete agreement, 0.
 
 Without elevation variable.
 
-<img width="1600" height="1200" alt="SD_between_models_without_elev" src="https://github.com/user-attachments/assets/750dbbe9-36b5-4ed0-8f48-a3ea86f16630" />
-<img width="1600" height="1200" alt="SD_between_m<img width="1600" height="1100" alt="SD_histogram_without_elev" src="https://github.com/user-attachments/assets/626aeb20-9ce4-4176-8935-031a9ca82cdb" />
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/750dbbe9-36b5-4ed0-8f48-a3ea86f16630"
+       alt="SD_between_models_without_elev"
+       width="48%" />
+  <img src="https://github.com/user-attachments/assets/626aeb20-9ce4-4176-8935-031a9ca82cdb"
+       alt="SD_histogram_without_elev"
+       width="48%" />
+</p>
 
 With elevation variable
 
-<img width="1600" height="1200" alt="SD_between_models_with_elev" src="https://github.com/user-attachments/assets/96b125c1-aa8b-40a4-8595-d99234158ac0" />
-<img width="1600" height="1100" alt="SD_histogram_with_elev" src="https://github.com/user-attachments/assets/1d292b02-b837-47dc-affe-efe34a0d413b" />
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/96b125c1-aa8b-40a4-8595-d99234158ac0"
+       alt="SD_between_models_with_elev"
+       width="48%" />
+  <img src="https://github.com/user-attachments/assets/1d292b02-b837-47dc-affe-efe34a0d413b"
+       alt="SD_histogram_with_elev"
+       width="48%" />
+</p>
 
 
 ### Model prediction correlation 
