@@ -4,6 +4,7 @@ This habitat modelling was created as part of the *Spatial Modelling and Predict
 
 
 ## Content
+...
 ## Data
 
 ...
@@ -103,12 +104,17 @@ With elevation variable
 
 Spatial correlation of the models, how similar are their predictions of the probability of the habitat occurring?
 
-Without elevation variable.
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/60a5528a-93d7-452a-9dca-371c3e827927"
+       alt="Model_prediction_correlation_without_elev"
+       width="48%" />
+  <img src="https://github.com/user-attachments/assets/579b568d-4075-4875-baae-d17c9c5823c6"
+       alt="Model_prediction_correlation_with_elev"
+       width="48%" />
+</p>
+<p align="center">
+  Without elevation variable &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp; With elevation variable
+</p>
 
-<img width="1400" height="1200" alt="Model_prediction_correlation_without_elev" src="https://github.com/user-attachments/assets/60a5528a-93d7-452a-9dca-371c3e827927" />
-
-With elevation variable
-
-<img width="1400" height="1200" alt="Model_prediction_correlation_with_elev" src="https://github.com/user-attachments/assets/579b568d-4075-4875-baae-d17c9c5823c6" />
 
 
