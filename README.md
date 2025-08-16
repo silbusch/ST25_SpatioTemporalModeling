@@ -129,6 +129,8 @@ folds <- cv$folds_list
 #### 10. A threshold model with a binary grid was created and shows which cells from at least three models have a probability of at least 70% of being the habitat of the species.
 #### 11. A standard deviation grid of all model results and a spatial correlation matrix were created.
 
+
+
 ## Example results
 
 ### AUC Table
