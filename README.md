@@ -153,17 +153,34 @@ AUC results with elevation variable
 | MaxNet      | 0,9359        | 0,0068         | 0,8812         | 0,0676         | 0,0548       | 0,0729
 | RF          | 0,9715        | 0,0031          | 0,9275        | 0,0482         | 0,044       | 0,0501
 
+The model with elevation data generally has a slightly higher AUC value, and all models show good discriminative power, ranking a presence point higher than an absence point. The low values for Mean_Gap are a small overfitting test. Values between 0.05 and 0.01 are good and indicate that the model works a little better with the training data, but that there is probably no overfitting. Values above 0.05, as is the case with GAM and MaxNet, indicate a tendency towards overfitting.
+
 ### Mean Model Prediction
+
+Similar patterns appear to exist, but the predictions of MaxNet and GAM (both of which may tend to overfit) correlate more strongly with each other, as well as MaxNet and GLM. The spatial correlation matrices are also shown at the end of the readme file.
+Prediction grids were created based on the average prediction (10-fold runs) of the models.
+
+GLM: is a linear model, which is why it tends to produce smooth gradients and less capture of niches --> (See maps: large areas with values in the middle range).
+
+GAM: Non-linear model and shows local hotspots in the maps. Possibly reduce degrees of freedom, as there is a tendency to overfit.
+
+MaxNet: Generally higher values and strongly separated, large niches.
+
+RF: Can handle strong fragmentation well by detecting small-scale patterns, which is also reflected in the maps.
+
 
 Without elevation variable
 
 <img width="2000" height="1500" alt="Suitability_models_mean_without_elev" src="https://github.com/user-attachments/assets/4fece05b-cdad-46bf-a394-aa3f8c9d7180" />
 
-With elevation variable
+With elevation variable. 
+The inclusion of elevation data led to a greater separation of the niches, which logically fits with the actual habitats. As a result, average values tended to be lower and the overall appearance sharper.
 
 <img width="2000" height="1500" alt="Suitability_models_mean_with_elev" src="https://github.com/user-attachments/assets/31066a68-5f57-436c-bb55-e55215fdf511" />
 
 ### Models Threshold
+
+The fact that the models tend to disagree is shown by the low overlap of the high habitat values.
 Consistent model prediction for habitat suitability probability values => 0.7.
 Without elevation variable.
 
@@ -175,7 +192,7 @@ With elevation variable
 
 ### Standard deviation map and histogram of model predictions
 
-The standard deviation between the model predictions. 0 = complete agreement, 0.5 = high prediction conflicts (two models say yes, two say no).
+The standard deviation measure also reflects the uncertainties in the more precise habitat determination. 0 = complete agreement, 0.5 = high prediction conflicts (two models say yes, two say no).
 
 Without elevation variable.
 
@@ -216,5 +233,14 @@ Spatial correlation of the models, how similar are their predictions of the prob
   Without elevation variable &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp; With elevation variable
 </p>
 
+The models that include elevation have a greater overlap in their predictions.
 
+## Challenges
 
+_The species has a very specific, fragmented habitat in mountainous areas. With a finer grid (currently approx. 4 km resolution), the differences could be better captured, but this requires a lot of computing power. 
+
+_Initially, the model was trained with a classic division of points in a 70/30 ratio, which led to better AUC values, but the blockCV package was then used to prevent spatial autocorrelation.
+
+_Due to the small habitats and the condition that there can only be one point per cell, over 3,000 of the 4,177 presence observations were deleted after filtering (occ_data_filtered). This resulted in a background to presence ratio of 1:7.
+
+_The inclusion of strongly correlated bioclimatic variables in various combinations resulted in AUC values between 0.95 and 0.99. After filtering these out, more specific variables remained, which are also used in the current script version (Bio 8, 10, 13, 15, 18), (elevation).
