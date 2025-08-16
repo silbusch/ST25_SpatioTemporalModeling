@@ -11,7 +11,7 @@ R version: 4.4.1
 
 ## Content
 
-The script models the potential habitat of the **_Oreamnos americanus_** using a Generalized Liear Model, Generalized Additive Model, Maximum Entropy Model, and Random Forest model. The **_Oreamnos americanus_** distribution is highly fragmented into niches, it has been introduced to some areas and naturally inhabits mountain regions.
+The script models the potential habitat of the **_Oreamnos americanus_** using a **Generalized Liear Model, Generalized Additive Model, Maximum Entropy Model**, and **Random Forest** model. The **_Oreamnos americanus_** distribution is highly fragmented into niches, it has been introduced to some areas and naturally inhabits mountain regions.
 
 #### 1. Data download of the species
 To download the complete species data, you need your own account (not a Google account). Your username, password and email address must be entered in the download code. The following is a brief description of the procedure and some code snippets for preparation analysis are shown. The script itself contains further comments on the individual steps.
@@ -160,13 +160,13 @@ The model with elevation data generally has a slightly higher AUC value, and all
 Similar patterns appear to exist, but the predictions of MaxNet and GAM (both of which may tend to overfit) correlate more strongly with each other, as well as MaxNet and GLM. The spatial correlation matrices are also shown at the end of the readme file.
 Prediction grids were created based on the average prediction (10-fold runs) of the models.
 
-GLM: is a linear model, which is why it tends to produce smooth gradients and less capture of niches --> (See maps: large areas with values in the middle range).
+**GLM:** is a linear model, which is why it tends to produce smooth gradients and less capture of niches --> (See maps: large areas with values in the middle range).
 
-GAM: Non-linear model and shows local hotspots in the maps. Possibly reduce degrees of freedom, as there is a tendency to overfit.
+**GAM:** Non-linear model and shows local hotspots in the maps. Possibly reduce degrees of freedom, as there is a tendency to overfit.
 
-MaxNet: Generally higher values and strongly separated, large niches.
+**MaxNet:** Generally higher values and strongly separated, large niches.
 
-RF: Can handle strong fragmentation well by detecting small-scale patterns, which is also reflected in the maps.
+**RF:** Can handle strong fragmentation well by detecting small-scale patterns, which is also reflected in the maps.
 
 
 Without elevation variable
