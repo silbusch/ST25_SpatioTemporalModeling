@@ -6,6 +6,7 @@ R version: 4.4.1
 
 ## Data
 **Species Data:** Global Core Biodata Resource (2025): *Oreamnos americanus (Blainville, 1816)*, URL: https://doi.org/10.15468/39omei
+
 **Bioclimatic & Eleveation Variables:** Fick, S. E., & Hijmans, R. J. (2017): *WorldClim 2: new 1km spatial resolution climate surfaces for global land areas.*, URL: https://www.worldclim.org/data/worldclim21.html
 
 ## Content
@@ -13,7 +14,7 @@ R version: 4.4.1
 The script models the potential habitat of the **_Oreamnos americanus_** using a Generalized Liear Model, Generalized Additive Model, Maximum Entropy Model, and Random Forest model. The **_Oreamnos americanus_** distribution is highly fragmented; it has been introduced to some areas and naturally inhabits mountain regions.
 
 #### 1. Data download of the species
-To download the complete species data, you need your own account (not a Google account). Your username, password and email address must be entered in the download code. The following is a brief description of the procedure and some corde snippets are shown. The script itself contains further comments on the individual steps.
+To download the complete species data, you need your own account (not a Google account). Your username, password and email address must be entered in the download code. The following is a brief description of the procedure and some code snippets for preparation analysis are shown. The script itself contains further comments on the individual steps.
 
 ```r
   key <- name_backbone(name = "Oreamnos americanus")$usageKey
@@ -126,22 +127,6 @@ folds <- cv$folds_list
 #### 8. The four models are trained in a large loop with each of the 10 folds, and their mean prediction is calculated and stored. The mean AUC and AUC standard deviation are also determined in this way. In addition, an ensemble model is generated that determines the mean value from all model predictions.
 #### 9. Plots and tables were saved in the working directory.
 #### 10. A threshold model with a binary grid was created and shows which cells from at least three models have a probability of at least 70% of being the habitat of the species.
-```r
-# threshold
-thr <- 0.70
-
-# binary raster
-rf_bin <- terra::ifel(mean_preds$RF >= thr, 1, 0)
-glm_bin <- terra::ifel(mean_preds$GLM >= thr, 1, 0)
-gam_bin <- terra::ifel(mean_preds$GAM >= thr, 1, 0)
-mx_bin  <- terra::ifel(mean_preds$MaxNet >= thr, 1, 0)
-ens_bin <- terra::ifel(mean_preds$Ensemble >= thr, 1, 0)
-
-# count cells with valid value
-hits <- glm_bin + gam_bin + rf_bin + mx_bin
-consensus_bin <- terra::ifel(hits >= 3, 1, 0)
-```
-
 #### 11. A standard deviation grid of all model results and a spatial correlation matrix were created.
 
 ## Example results
