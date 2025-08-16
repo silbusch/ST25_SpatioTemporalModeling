@@ -11,7 +11,7 @@ R version: 4.4.1
 
 ## Content
 
-The script models the potential habitat of the **_Oreamnos americanus_** using a Generalized Liear Model, Generalized Additive Model, Maximum Entropy Model, and Random Forest model. The **_Oreamnos americanus_** distribution is highly fragmented; it has been introduced to some areas and naturally inhabits mountain regions.
+The script models the potential habitat of the **_Oreamnos americanus_** using a Generalized Liear Model, Generalized Additive Model, Maximum Entropy Model, and Random Forest model. The **_Oreamnos americanus_** distribution is highly fragmented into niches, it has been introduced to some areas and naturally inhabits mountain regions.
 
 #### 1. Data download of the species
 To download the complete species data, you need your own account (not a Google account). Your username, password and email address must be entered in the download code. The following is a brief description of the procedure and some code snippets for preparation analysis are shown. The script itself contains further comments on the individual steps.
@@ -243,4 +243,4 @@ _Initially, the model was trained with a classic division of points in a 70/30 r
 
 _Due to the small habitats and the condition that there can only be one point per cell, over 3,000 of the 4,177 presence observations were deleted after filtering (occ_data_filtered). This resulted in a background to presence ratio of 1:7.
 
-_The inclusion of strongly correlated bioclimatic variables in various combinations resulted in AUC values between 0.95 and 0.99. After filtering these out, more specific variables remained, which are also used in the current script version (Bio 8, 10, 13, 15, 18), (elevation).
+_The inclusion of strongly correlated bioclimatic variables in various combinations resulted in AUC values between 0.95 and 0.99. After filtering these out, more specific variables remained, which are also used in the current script version (Bio 8, 10, 13, 15, 18,(elevation)).
