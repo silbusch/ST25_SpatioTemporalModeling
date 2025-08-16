@@ -2,10 +2,14 @@
 
 This habitat modelling was created as part of the *Spatial Modelling and Prediction course* held at the Earth Observation Research Cluster.
 
+R version: 4.4.1
+
 
 ## Content
+
 ...
-## Data
+## Data<img width="447" height="368" alt="5e067d0b-8242-468b-9bd7-1e6e36639d7d" src="https://github.com/user-attachments/assets/c63358e8-f455-46b1-9647-a66ce21d0c44" />
+
 
 ...
 
