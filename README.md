@@ -7,6 +7,13 @@ R version: 4.4.1
 
 ## Content
 
+The script models the potential habitat of the *Oreamnos americanus* using a Generalized Liear Model, Generalized Additive Model, Maximum Entropy Model, and Random Forest model. Das Script ist folgendermaßen aufgebaut:
+
+#### 1. Data download of the species
+#### 2. Filtering the data so that only animals living in freedom are included in the model (e.g. no preserved specimen).
+#### 3. Defining AOI based on observations with buffer
+#### 4. Data download of bioclimatic and elevation variables
+#### 5. Creating 5000 pseudo points in AOI (except ocean) and linking them to the species dataset. The bioclimatic and altitude variables are assigned to the points and only one point is retained per grid cell.
 ...
 ## Data<img width="447" height="368" alt="5e067d0b-8242-468b-9bd7-1e6e36639d7d" src="https://github.com/user-attachments/assets/c63358e8-f455-46b1-9647-a66ce21d0c44" />
 
