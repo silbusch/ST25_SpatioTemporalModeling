@@ -5,7 +5,6 @@
 library(readr)
 library(rgbif)
 library(dplyr)
-#library(maps)
 library(terra)
 library(geodata)
 library(sf)
@@ -14,50 +13,51 @@ library(lattice)
 library(corrplot)
 library(caret)
 library(pROC)
-#library(predicts)
 library(maxnet)
 library(randomForest)
 library(mgcv)
-#library(gbm)
 library(splines)
-#library(foreach)
 library(gam)
 library(openxlsx)
 library(remotes)
+library(scales)
 remotes::install_github("rvalavi/blockCV", dependencies = TRUE)
 library(blockCV)
-library(scales)
 
 #---- Download of "Oreamnos americanus (Blainville, 1816)" ---------------------
 
-#*****************************************************************************#*
+#*******************************************************************************
 #** Either first download of "Oreamnos americanus (Blainville, 1816)"...*
 
-# path <- setwd("....")
-#
-# # Download Data
-# key <- name_backbone(name = "Oreamnos americanus")$usageKey
-# 
-# download_key <- occ_download(
-#   pred("taxonKey", key),
-#   pred("hasCoordinate", TRUE),
-#   user = "...",
-#   pwd = "...",
-#   email = "..."
-# )
-# 
-# dl <- occ_download_get(download_key, overwrite = TRUE)
-# 
-# occ_data <- occ_download_import(dl)
+path <- setwd("...")
 
+# Download Data
+key <- name_backbone(name = "Oreamnos americanus")$usageKey
+
+download_key <- occ_download(
+  pred("taxonKey", key),
+  pred("hasCoordinate", TRUE),
+  user = "...",
+  pwd = "...",
+  email = "..."
+)
+
+dl <- occ_download_get(download_key, overwrite = TRUE)
+
+occ_data <- occ_download_import(dl)
+
+#*******************************************************************************
 #**...or if the data already exists locally: *
-path <- "C:/users/Duck/Documents/Studium/EAGLE/2_semester/3_Spatio_Temporal_Modelling/ST25_SpatioTemporalModeling_Exam/ST25_SpatioTemporalModeling/data/0003051-250811113504898.zip"
-tmpdir   <- tempdir()
-
-# unpack occurrence.txt
-unzip(path, files = "occurrence.txt", exdir = tmpdir, overwrite = TRUE)
-# load data
-occ_data <- read_tsv(file.path(tmpdir, "occurrence.txt"), show_col_types = FALSE)
+#
+# #path <- "C:/users/Duck/Documents/Studium/EAGLE/2_semester/3_Spatio_Temporal_Modelling/ST25_SpatioTemporalModeling_Exam/ST25_SpatioTemporalModeling/data/0003051-250811113504898.zip"
+# path <- "C:/.../0003051-250811113504898.zip"
+# tmpdir   <- tempdir()
+# 
+# # unpack occurrence.txt
+# unzip(path, files = "occurrence.txt", exdir = tmpdir, overwrite = TRUE)
+# # load data
+# occ_data <- read_tsv(file.path(tmpdir, "occurrence.txt"), show_col_types = FALSE)
+# 
 #*******************************************************************************
 
 
@@ -107,31 +107,37 @@ ggplot() +
 
 #---- Download bioclimatic variables and altitude data -------------------------
 
-path_data <- "C:/users/Duck/Documents/Studium/EAGLE/2_semester/3_Spatio_Temporal_Modelling/ST25_SpatioTemporalModeling_Exam/ST25_SpatioTemporalModeling/data"
-
 #*******************************************************************************
 #** Either download bioclimatic variables and altitude data for the first time*
-#
-# bioclim_aoi_file <- file.path(path_data, "bioclim_AOI_2p5m.tif")
-# # DOwnload bioclimatic variables and altitude data
-# bioclim_data <- worldclim_global(var = "bio",
-#                                  res = 2.5,
-#                                  path = "data/")
-# alt <- elevation_global(res = 2.5, path = "data/")
-# bioclim_data <- c(bioclim_data, alt)
-# 
+
+# path_data <- "C:/users/Duck/Documents/Studium/EAGLE/2_semester/3_Spatio_Temporal_Modelling/ST25_SpatioTemporalModeling_Exam/ST25_SpatioTemporalModeling/data"
+
+# location where the bioclimatic- and elevation data should be stored
+path_data <- "C:/...."
+
+bioclim_aoi_file <- file.path(path_data, "bioclim_AOI_2p5m.tif")
+
+# DOwnload bioclimatic variables and altitude data
+bioclim_data <- worldclim_global(var = "bio",
+                                 res = 2.5,
+                                 path = "data/")
+
+alt <- elevation_global(res = 2.5, path = "data/")
+
+bioclim_data <- c(bioclim_data, alt)
+
 # Crop
-# bioclim_data <- crop(x = bioclim_data, y = aoi_ext)
-# 
-# # Save as GeoTIFF
-# writeRaster(bioclim_data,
-#             filename = bioclim_aoi_file,
-#             overwrite = TRUE)
+bioclim_data <- crop(x = bioclim_data, y = aoi_ext)
+
+# Save as GeoTIFF
+writeRaster(bioclim_data,
+            filename = bioclim_aoi_file,
+            overwrite = TRUE)
 
 #** Or load data if already downloaded*
-#*
-bioclim_aoi_file <- file.path(path_data, "bioclim_AOI_2p5m.tif")
-bioclim_data <- rast(bioclim_aoi_file)
+# #*
+# bioclim_aoi_file <- file.path(path_data, "bioclim_AOI_2p5m.tif")
+# bioclim_data <- rast(bioclim_aoi_file)
 
 #*******************************************************************************
 
@@ -200,8 +206,8 @@ print(vars_with_elev)
 vars_without_elev <- setdiff(all_vars, union(to_remove, "wc2.1_2.5m_elev"))
 print(vars_without_elev)
 
-#Variable selection option above leaded to AUC for Train and Test between 0.9 and 0.99 for all models 
 
+# example variable selection option above leaded to AUC for Train and Test between 0.9 and 0.99 for all models 
 # all_vars <- names(bioclim_data)
 # 
 # keep_vars <- c(
@@ -233,7 +239,7 @@ print(vars_without_elev)
 #** FALSE: without elevation*
 #** TRUE: with elevation*
 
-elev <- FALSE  
+elev <- FALSE 
 
 if (elev) {
   filtered_var <- vars_with_elev
@@ -311,6 +317,7 @@ mean_preds <- list(GLM=NULL, GAM=NULL, MaxNet=NULL, RF=NULL, Ensemble=NULL)
 r_all <- bioclim_data[[filtered_var]]
 
 #** !!! the loop may take several minutes to complete !!!*
+
 for (i in seq_along(folds)) {
   # outputs the current fold to show progress
   cat("\n--- Fold", i, "---\n")
@@ -475,6 +482,9 @@ for (i in seq_along(folds)) {
   # and their cell values are divided by four to average the result.
   pred_r_ens <- (pred_r_glm + pred_r_gam + pred_r_mx + pred_r_rf) / 4
   
+  
+  
+  
 ################################################################################
 #-------------------------------------------------------------------------------
 #---- Saving all results -------------------------------------------------------
@@ -503,6 +513,7 @@ for (i in seq_along(folds)) {
     mean_preds$Ensemble <- mean_preds$Ensemble + pred_r_ens
   }
 }
+
 
 ################################################################################
 ##         Table with all AUC Values                                          ##
@@ -602,9 +613,12 @@ plot(rf_bin,  main = paste0("RF ≥ ", thr), col = c("grey80","darkgreen"), lege
 plot(ens_bin, main = paste0("Ensemble ≥ ", thr), col = c("grey80","darkgreen"), legend = FALSE)
 plot(consensus_bin, main = paste0("Consensus ≥ ", thr, " (≥3 models)"), col = c("grey80","red"), legend = FALSE)
 par(xpd = NA)
+
 cols <- c("grey80", "red")
+
 legend("right", legend = c("Probably no habitat", "Very likely habitat"), fill = cols,
        border = "black", inset = -0.4, bty = "n", cex = 1)
+
 mtext("Threshold (prediction values ≥ 0.7", outer = TRUE, line = -2, cex = 1.5)
 par(mfrow = c(1, 1))
 dev.off()
@@ -633,6 +647,7 @@ sd_plot_file <- paste0("SD_between_models_", plot_suffix, ".png")
 png(filename = sd_plot_file, width = 1600, height = 1200, res = 150)
 plot(r_sd, main = "Standard deviation of GLM, GAM, MaxNet, RF")
 dev.off()
+
 cat("Standard deviation raster saved as:", sd_plot_file, "\n")
 
 
@@ -654,9 +669,10 @@ sd_hist <- ggplot(data.frame(SD = vals), aes(x = SD)) +
 png(filename = hist_plot_file, width = 1600, height = 1100, res = 150)
 print(sd_hist)
 dev.off()
+
 cat("SD histogram saved as:", hist_plot_file, "\n")
 
-#---- spatial korrelation ------------------------------------------------------
+#---- spatial correlation ------------------------------------------------------
 
 set.seed(50)
 smp_vals <- spatSample(r_stack, size = 50000, method = "random", na.rm = TRUE, as.points = FALSE, values = TRUE)
@@ -673,10 +689,5 @@ corrplot::corrplot(cmat, method = "color", type = "full", addCoef.col = "black",
 title("Correlation of mean model predictions", line = 3.5, cex.main = 1.4)
 
 dev.off()
-cat("Heatmap gespeichert:", corr_png_file, "\n")
 
-#         GLM       GAM    MaxNet        RF
-# GLM    1.0000000 0.6900610 0.7961983 0.5772618
-# GAM    0.6900610 1.0000000 0.8921212 0.6841287
-# MaxNet 0.7961983 0.8921212 1.0000000 0.6863166
-# RF     0.5772618 0.6841287 0.6863166 1.0000000
+cat("Heatmap gespeichert:", corr_png_file, "\n")
