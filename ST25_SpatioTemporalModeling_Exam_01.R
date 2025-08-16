@@ -169,6 +169,7 @@ goat <- cbind(goat,e)
 
 # remove points that fall within the same cell, to only have one point per raster-cell (because the values are similar)
 goat <-goat[!duplicated(goat$cell),]
+table(goat$occ)
 
 # plot observation and random seed points
 ggplot() +
@@ -587,7 +588,6 @@ thr <- 0.70
 
 # binary raster
 rf_bin <- terra::ifel(mean_preds$RF >= thr, 1, 0)
-
 glm_bin <- terra::ifel(mean_preds$GLM >= thr, 1, 0)
 gam_bin <- terra::ifel(mean_preds$GAM >= thr, 1, 0)
 mx_bin  <- terra::ifel(mean_preds$MaxNet >= thr, 1, 0)
