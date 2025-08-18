@@ -147,13 +147,13 @@ AUC results without elevation variable
 
 
 AUC results with elevation variable
-| Model       | Mean_AUC_train | SD_AUC_train  | Mean_AUC_test | SD_AUC_test    | Mean_Gap      | SD_Gap  |
-| :-----------| :-----------: | -------------: |-------------: |--------------: |------------: |---------: |
-| Ensemble    | 0,9285        | 0,0063         | 0,9143        | 0,0484         | 0,0142       | 0,0486
-| GAM         | 0,9352        | 0,0056         | 0,8606        | 0,0634          | 0,0746       | 0,0677
-| GLM         | 0,8697        | 0,0083         | 0,8522        | 0,0835         | 0,0175       | 0,0904
-| MaxNet      | 0,9359        | 0,0068         | 0,8812         | 0,0676         | 0,0548       | 0,0729
-| RF          | 0,9715        | 0,0031          | 0,9275        | 0,0482         | 0,044       | 0,0501
+| Model    | Mean_AUC_train | SD_AUC_train | Mean_AUC_test | SD_AUC_test | Mean_Gap | SD_Gap |
+|----------|---------------:|-------------:|--------------:|------------:|---------:|-------:|
+| Ensemble | 0.9285         | 0.0063       | 0.9143        | 0.0484      | 0.0142   | 0.0486 |
+| GAM      | 0.9352         | 0.0056       | 0.8606        | 0.0634      | 0.0746   | 0.0677 |
+| GLM      | 0.8697         | 0.0083       | 0.8522        | 0.0835      | 0.0175   | 0.0904 |
+| MaxNet   | 0.9359         | 0.0068       | 0.8812        | 0.0676      | 0.0548   | 0.0729 |
+| RF       | 0.9715         | 0.0031       | 0.9275        | 0.0482      | 0.0440   | 0.0501 |
 
 The model with elevation data generally has a slightly higher AUC value, and all models show good discriminative power, ranking a presence point higher than an absence point. The low values for Mean_Gap are a small overfitting test. Values between 0.05 and 0.01 are good and indicate that the model works a little better with the training data, but that there is probably no overfitting. Values above 0.05, as is the case with GAM and MaxNet, indicate a tendency towards overfitting.
 
@@ -178,7 +178,7 @@ Without elevation variable
 With elevation variable. 
 The inclusion of elevation data led to a greater separation of the niches, which logically fits with the actual habitats. As a result, average values tended to be lower and the overall appearance sharper.
 
-<img width="2000" height="1500" alt="Suitability_models_mean_with_elev" src="https://github.com/user-attachments/assets/31066a68-5f57-436c-bb55-e55215fdf511" />
+<img width="3600" height="1500" alt="Suitability_models_mean_with_elev" src="https://github.com/user-attachments/assets/df8139e0-aec9-4bb1-a477-ab85183ee3dd" />
 
 ### Models Threshold
 
@@ -186,11 +186,11 @@ The fact that the models tend to disagree is shown by the low overlap of the hig
 Consistent model prediction for habitat suitability probability values => 0.7.
 Without elevation variable.
 
-<img width="2000" height="1500" alt="Threshold_models_mean_without_elev" src="https://github.com/user-attachments/assets/c9891d02-3798-4711-86d8-c4a2af0faa0d" />
+<img width="2000" height="1500" alt="Threshold_models_mean_without_elev" src="https://github.com/user-attachments/assets/5afb3c0a-7fdf-4923-be64-3b3d52578a1c" />
 
 With elevation variable
 
-<img width="2000" height="1500" alt="Threshold_models_mean_with_elev" src="https://github.com/user-attachments/assets/21bec3e9-49c4-48b7-ac01-098428804b57" />
+<img width="2000" height="1500" alt="Threshold_models_mean_with_elev" src="https://github.com/user-attachments/assets/83afd1a0-8bc2-42dc-951c-6aa5d242a2de" />
 
 ### Standard deviation map and histogram of model predictions
 
@@ -209,10 +209,10 @@ Without elevation variable.
 With elevation variable
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/96b125c1-aa8b-40a4-8595-d99234158ac0"
+  <img src="https://github.com/user-attachments/assets/55bc0108-9f28-4343-ae67-c6ae08539e24"
        alt="SD_between_models_with_elev"
        width="48%" />
-  <img src="https://github.com/user-attachments/assets/1d292b02-b837-47dc-affe-efe34a0d413b"
+  <img src="https://github.com/user-attachments/assets/59af131b-393e-4c4e-b40d-f4959452cf21"
        alt="SD_histogram_with_elev"
        width="48%" />
 </p>
@@ -223,10 +223,10 @@ With elevation variable
 Spatial correlation of the models, how similar are their predictions of the probability of the habitat occurring?
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/60a5528a-93d7-452a-9dca-371c3e827927"
+  <img src="https://github.com/user-attachments/assets/5346b887-6327-47c2-833d-9d5a711153ed"
        alt="Model_prediction_correlation_without_elev"
        width="48%" />
-  <img src="https://github.com/user-attachments/assets/579b568d-4075-4875-baae-d17c9c5823c6"
+  <img src="https://github.com/user-attachments/assets/f12ec48b-881a-4463-a4d2-030a2a3c1cdc"
        alt="Model_prediction_correlation_with_elev"
        width="48%" />
 </p>
