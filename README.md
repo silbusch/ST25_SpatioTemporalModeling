@@ -727,6 +727,10 @@ With elevation variable
 
 Spatial correlation of the models, how similar are their predictions of the probability of the habitat occurring?
 
+
+<p align="center">
+  Without elevation variable &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp; With elevation variable
+</p>
 <p align="center">
   <img src="https://github.com/user-attachments/assets/5346b887-6327-47c2-833d-9d5a711153ed"
        alt="Model_prediction_correlation_without_elev"
@@ -734,9 +738,6 @@ Spatial correlation of the models, how similar are their predictions of the prob
   <img src="https://github.com/user-attachments/assets/f12ec48b-881a-4463-a4d2-030a2a3c1cdc"
        alt="Model_prediction_correlation_with_elev"
        width="48%" />
-</p>
-<p align="center">
-  Without elevation variable &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp; With elevation variable
 </p>
 
 The models that include height do not necessarily have greater overlap. The performance of the models depends on the randomly distributed train test data set.
