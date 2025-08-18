@@ -34,7 +34,7 @@ To download the complete species data, you need your own account (not a Google a
 
 #### 2. Filtering the data so that only animals living in freedom are included in the model (e.g. no preserved specimen).
 #### 3. Defining AOI based on observations with buffer
-<img width="447" height="368" alt="5e067d0b-8242-468b-9bd7-1e6e36639d7d" src="https://github.com/user-attachments/assets/c63358e8-f455-46b1-9647-a66ce21d0c44" />
+<img width="565" height="368" alt="AOI" src="https://github.com/user-attachments/assets/011862c1-cd99-495d-b296-60ca72a58681" />
 
 #### 4. Data download of bioclimatic and elevation variables and cropping to the AOI
 
@@ -91,7 +91,8 @@ goat <- cbind(goat,e)
 # remove points that fall within the same cell, to only have one point per raster-cell (because the values are similar)
 goat <-goat[!duplicated(goat$cell),]
 ```
-<img width="523" height="368" alt="976d364d-73b8-4018-98b7-70bdcb348e79" src="https://github.com/user-attachments/assets/de8c9a40-0d20-472a-bd8d-1fa12927ee94" />
+
+<img width="572" height="368" alt="AOI_random" src="https://github.com/user-attachments/assets/5be057a6-b3ee-426d-888b-0e18aca97b1c" />
 
 #### 6. After trying out various combinations of variables, highly correlated variables ( cor. >=0.7 / -0.7) were removed from the data set. The elevation variable can be used separately.
 
