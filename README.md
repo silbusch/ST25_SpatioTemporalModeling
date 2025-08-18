@@ -137,13 +137,14 @@ folds <- cv$folds_list
 ### AUC Table
 
 AUC results without elevation variable
-| Model       | Mean_AUC_train | SD_AUC_train  | Mean_AUC_test | SD_AUC_test    | Mean_Gap      | SD_Gap  |
-| :-----------| :-----------: | -------------: |-------------: |--------------: |------------: |---------: |
-| Ensemble    | 0,9188        | 0,0068         | 0,8969        | 0,0643         | 0,0219       | 0,0663
-| GAM         | 0,9273        | 0,0064         | 0,8468        | 0,073          | 0,0805       | 0,0778
-| GLM         | 0,8691        | 0,0085         | 0,8592        | 0,0792         | 0,0099       | 0,0864
-| MaxNet      | 0,9257        | 0,0081         | 0,871         | 0,0825         | 0,0547       | 0,0891
-| RF          | 0,9582        | 0,005          | 0,8975        | 0,0621         | 0,0607       | 0,0655
+| Model    | Mean_AUC_train | SD_AUC_train | Mean_AUC_test | SD_AUC_test | Mean_Gap | SD_Gap |
+|----------|---------------:|-------------:|--------------:|------------:|---------:|-------:|
+| Ensemble | 0.9188         | 0.0068       | 0.8969        | 0.0643      | 0.0219   | 0.0663 |
+| GAM      | 0.9273         | 0.0064       | 0.8468        | 0.0730      | 0.0805   | 0.0778 |
+| GLM      | 0.8691         | 0.0085       | 0.8592        | 0.0792      | 0.0099   | 0.0864 |
+| MaxNet   | 0.9257         | 0.0081       | 0.8710        | 0.0825      | 0.0547   | 0.0891 |
+| RF       | 0.9582         | 0.0050       | 0.8975        | 0.0621      | 0.0607   | 0.0655 |
+
 
 AUC results with elevation variable
 | Model       | Mean_AUC_train | SD_AUC_train  | Mean_AUC_test | SD_AUC_test    | Mean_Gap      | SD_Gap  |
@@ -172,7 +173,7 @@ Prediction grids were created based on the average prediction (10-fold runs) of 
 
 Without elevation variable
 
-<img width="2000" height="1500" alt="Suitability_models_mean_without_elev" src="https://github.com/user-attachments/assets/4fece05b-cdad-46bf-a394-aa3f8c9d7180" />
+<img width="3600" height="1500" alt="Suitability_models_mean_without_elev" src="https://github.com/user-attachments/assets/d81b9ca5-abc4-4751-933b-3b30e475c259" />
 
 With elevation variable. 
 The inclusion of elevation data led to a greater separation of the niches, which logically fits with the actual habitats. As a result, average values tended to be lower and the overall appearance sharper.
@@ -196,12 +197,11 @@ With elevation variable
 The standard deviation measure also reflects the uncertainties in the more precise habitat determination. 0 = complete agreement, 0.5 = high prediction conflicts (two models say yes, two say no).
 
 Without elevation variable.
-
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/750dbbe9-36b5-4ed0-8f48-a3ea86f16630"
+  <img src="https://github.com/user-attachments/assets/1d565232-e8a3-42aa-ba41-f78420c3f245"
        alt="SD_between_models_without_elev"
        width="48%" />
-  <img src="https://github.com/user-attachments/assets/626aeb20-9ce4-4176-8935-031a9ca82cdb"
+  <img src="https://github.com/user-attachments/assets/c1b04bd2-3641-4117-9fb0-c2b47487771f"
        alt="SD_histogram_without_elev"
        width="48%" />
 </p>
