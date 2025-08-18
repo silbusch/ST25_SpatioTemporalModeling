@@ -720,9 +720,10 @@ png(filename = corr_png_file, width = 1400, height = 1200, res = 150)
 par(oma = c(0, 0, 6, 0), mar = c(3, 3, 1, 6))
 corrplot::corrplot(cmat, method = "color", type = "full", addCoef.col = "black",
                    tl.col = "black", tl.srt = 45, number.cex = 0.8, cl.pos = "r")
-title("Correlation of mean model predictions", line = 3.5, cex.main = 1.4)
+mtext("Correlation of mean model predictions", side = 3, outer = TRUE, line = 2, cex = 1.4)
 
 dev.off()
 
-cat("Heatmap gespeichert:", corr_png_file, "\n")
+cat("Correlation matrix:", corr_png_file, "\n")
 
+#
