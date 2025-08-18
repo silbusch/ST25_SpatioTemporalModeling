@@ -4,16 +4,16 @@ This habitat modelling was created as part of the *Spatial Modelling and Predict
 
 R version: 4.4.1
 
-## Data
+# Data
 **Species Data:** Global Core Biodata Resource (2025): *Oreamnos americanus (Blainville, 1816)*, URL: https://doi.org/10.15468/39omei
 
 **Bioclimatic & Eleveation Variables:** Fick, S. E., & Hijmans, R. J. (2017): *WorldClim 2: new 1km spatial resolution climate surfaces for global land areas.*, URL: https://www.worldclim.org/data/worldclim21.html
 
-## Content
+# Content
 
 The script models the potential habitat of the **_Oreamnos americanus_** using a **Generalized Liear Model, Generalized Additive Model, Maximum Entropy Model**, and **Random Forest** model. The **_Oreamnos americanus_** distribution is highly fragmented into niches, it has been introduced to some areas and naturally inhabits mountain regions.
 
-#### Packages
+### Packages
 ```r
 library(readr)
 library(rgbif)
@@ -38,9 +38,8 @@ remotes::install_github("rvalavi/blockCV", dependencies = TRUE)
 library(blockCV)
 ```
 
-#### 1. Data download of the species
-To download the complete species data, you need your own account (not a Google account). Your username, password and email address must be entered in the download code. The following is a brief description of the procedure and some code snippets for preparation analysis are shown. The script itself contains further comments on the individual steps.
-
+### 1. Data download of the species
+To download the complete species data, you need your own account (not a Google account). Your username, password and email address must be entered in the download code. 
 ```r
 path <- setwd("...")
 
@@ -59,7 +58,7 @@ key <- name_backbone(name = "Oreamnos americanus")$usageKey
   occ_data <- occ_download_import(dl)
 ```
 
-#### 2. Filtering the data so that only animals living in freedom are included in the model.
+### 2. Filtering the data so that only animals living in freedom are included in the model.
 ```r
 # Keeping only entries with accuracy of 1 km, and deleting entries of preserved specimen
 occ_data_filtered <- occ_data %>%
@@ -72,7 +71,7 @@ occ_data_filtered <- occ_data %>%
 occ_data_filtered <- occ_data_filtered %>% select(c("decimalLongitude","decimalLatitude"))
 ```
 
-#### 3. Defining AOI based on observations with distance from the edge.
+### 3. Defining AOI based on observations with distance from the edge.
 ```r
 # Extent of AOI
 xmin <- -154
@@ -102,7 +101,7 @@ ggplot() +
 ```
 <img width="565" height="368" alt="AOI" src="https://github.com/user-attachments/assets/011862c1-cd99-495d-b296-60ca72a58681" />
 
-#### 4. Data download of bioclimatic and elevation variables and cropping to the AOI
+### 4. Data download of bioclimatic and elevation variables and cropping to the AOI
 
 ```r
 # location where the bioclimatic- and elevation data should be stored
@@ -127,7 +126,7 @@ writeRaster(bioclim_data,
             filename = bioclim_aoi_file,
             overwrite = TRUE)
 ```
-#### 5. Creating 5000 pseudo points in AOI (except ocean) and linking them to the species dataset. The bioclimatic and altitude variables are assigned to the points and only one point is retained per grid cell.
+### 5. Creating 5000 pseudo points in AOI (except ocean) and linking them to the species dataset. The bioclimatic and altitude variables are assigned to the points and only one point is retained per grid cell.
 
 ```r
 ## Create 5000 pseudo-absence background points
@@ -170,7 +169,7 @@ ggplot() +
 ```
 <img width="572" height="368" alt="AOI_random" src="https://github.com/user-attachments/assets/5be057a6-b3ee-426d-888b-0e18aca97b1c" />
 
-#### 6. After trying out various combinations of variables, highly correlated variables ( cor. >=0.7 / -0.7) were removed from the data set. 
+### 6. After trying out various combinations of variables, highly correlated variables ( cor. >=0.7 / -0.7) were removed from the data set. 
 ```r
 # Check correlation of our variables
 valnum <- lapply(bioclim_data, as.data.frame )
@@ -206,7 +205,7 @@ The elevation variable can be used separately: At this point in the code, the el
   }
 ```
 
-#### 7. The AOI was divided into hexagons with a width of 200 km, and the data was divided into train or test according to the hexagon in order to reduce spatial autocorrelation. This train-test division was randomly assigned 10 times (10-folds).
+### 7. The AOI was divided into hexagons with a width of 200 km, and the data was divided into train or test according to the hexagon in order to reduce spatial autocorrelation. This train-test division was randomly assigned 10 times (10-folds).
 
 ```r
 # To account for the effect of spatial autocorrelation due to closely located
@@ -251,7 +250,7 @@ folds <- cv$folds_list
 ```
 <img width="1260" height="1008" alt="hex" src="https://github.com/user-attachments/assets/89133a94-57f3-4057-ad6f-d6d7f5f52f9d" />
 
-#### 8. The four models are trained in a large loop with each of the 10 folds, and their mean prediction is calculated and stored. The mean AUC and AUC standard deviation are also determined in this way. In addition, an ensemble model is generated that determines the mean value from all model predictions. 
+### 8. The four models are trained in a large loop with each of the 10 folds, and their mean prediction is calculated and stored. The mean AUC and AUC standard deviation are also determined in this way. In addition, an ensemble model is generated that determines the mean value from all model predictions. 
 
 Preparation for storing intermediate results of the folds.
 ```r
@@ -278,7 +277,7 @@ for (i in seq_along(folds)) {
   goat_test  <- goat[test_idx, ]
 ```
 
-##### Generalized Linear Model
+#### Generalized Linear Model
 ```r
   # formular for GLM
   var_glm <- as.formula(paste("occ ~", paste(filtered_var, collapse = " + ")))
@@ -304,7 +303,7 @@ for (i in seq_along(folds)) {
   pred_r_glm <- terra::predict(r_glm, model_glm, type = "response", na.rm = TRUE)
 ```
 
-##### Generalized Additive Model
+#### Generalized Additive Model
 ```r
   # formular for GAM
   var_gam <- as.formula(paste("occ ~", paste0("s(", filtered_var, ")", collapse = " + ")))
@@ -325,7 +324,7 @@ for (i in seq_along(folds)) {
   pred_r_gam <- terra::predict(r_gam, model_gam, type = "response", na.rm = TRUE)
 ```
 
-##### Maximum Entropy Model
+#### Maximum Entropy Model
 ```r
   # filtering for only columns, which were used in the GLM-model and deleting a few columns with NA-values
   pred_cols <- intersect(filtered_var, names(goat_train))
@@ -358,7 +357,7 @@ for (i in seq_along(folds)) {
   pred_r_mx <- terra::predict(r_mx, model_maxnet, type = "cloglog", na.rm = TRUE)
 ```
 
-##### Random Forest Model
+#### Random Forest Model
 ```r
 # Random Forest model with Bootstrap-Sampling 
   rf_train <- goat_train[, c("occ", pred_cols)]
@@ -386,7 +385,7 @@ for (i in seq_along(folds)) {
   pred_r_rf <- terra::predict(r_rf, model_rf, type = "prob", index = 2, na.rm = TRUE)
 ```
 
-##### Ensemble Model
+#### Ensemble Model
 ```r
  # mean value for all predicted test and train data
   ens_train <- rowMeans(cbind(
@@ -411,7 +410,7 @@ for (i in seq_along(folds)) {
   pred_r_ens <- (pred_r_glm + pred_r_gam + pred_r_mx + pred_r_rf) / 4
 ```
 
-##### Saving all results
+#### Saving all results
 ```r
   # saving all AUC and Gap results 
   results_all <- rbind(results_all,
@@ -437,9 +436,9 @@ for (i in seq_along(folds)) {
   }
 }
 ```
-#### 9. Plots and tables were saved in the working directory.
+### 9. Plots and tables were saved in the working directory.
 
-##### Table with all AUC Values
+#### Table with all AUC Values
 ```r
 summary_results <- results_all %>%
   group_by(Model) %>%
@@ -468,7 +467,7 @@ openxlsx::write.xlsx(summary_results_rounded, file = file_name, rowNames = FALSE
 cat("Table got saved as:", file_name, "\n")
 ```
 
-##### All predicted rasters
+#### All predicted rasters
 
 ```r
 # calculating the average prediction raster for each model
@@ -512,7 +511,7 @@ ggsave(mean_plot_file, plot = mean_plot, width = 12, height = 5, dpi = 300)
 cat("Plot got saved as:", mean_plot_file, "\n")
 ```
 
-#### 10. A threshold model with a binary grid was created and shows which cells from at least three models have a probability of at least 70% of being the habitat of the species.
+### 10. A threshold model with a binary grid was created and shows which cells from at least three models have a probability of at least 70% of being the habitat of the species.
 ```r
 # Representation of the habitat when all grid cells with a certain threshold are
 # combined from all models. So, the locations where all models predict a very
@@ -563,8 +562,8 @@ dev.off()
 cat("Threshold maps saved as:", threshold_plot_file, "\n")
 
 ```
-#### 11. A standard deviation grid and histogram of all model results and a spatial correlation matrix were created.
-##### Grid of the standard deviation of the predictions of all models 
+### 11. A standard deviation grid and histogram of all model results and a spatial correlation matrix were created.
+#### Grid of the standard deviation of the predictions of all models 
 ```r
 # standard deviation raster for each cell
 r_sd <- app(r_stack, fun = sd, na.rm = TRUE)
@@ -593,7 +592,7 @@ ggsave(sd_plot_file, plot = p_sd, width = 12, height = 7, dpi = 300)
 cat("Standard deviation raster saved as:", sd_plot_file, "\n")
 ```
 
-##### Histogram of the standard deviation
+#### Histogram of the standard deviation
 ```r
  # histogramm
 vals <- as.vector(terra::values(r_sd, na.rm = TRUE))
@@ -639,9 +638,9 @@ cat("Correlation matrix:", corr_png_file, "\n")
 ```
 
 
-## Example results
+# Example results
 
-### AUC Table
+## AUC Table
 
 AUC results without elevation variable
 | Model    | Mean_AUC_train | SD_AUC_train | Mean_AUC_test | SD_AUC_test | Mean_Gap | SD_Gap |
@@ -664,7 +663,7 @@ AUC results with elevation variable
 
 The model with elevation data generally has a slightly higher AUC value, and all models show good discriminative power, ranking a presence point higher than an absence point. The low values for Mean_Gap are a small overfitting test. Values between 0.05 and 0.01 are good and indicate that the model works a little better with the training data, but that there is probably no overfitting. Values above 0.05, as is the case with GAM and MaxNet, indicate a tendency towards overfitting.
 
-### Mean Model Prediction
+## Mean Model Prediction
 
 Similar patterns appear to exist, but the predictions of MaxNet and GAM (both of which may tend to overfit) correlate more strongly with each other, as well as MaxNet and GLM. The spatial correlation matrices are also shown at the end of the readme file.
 Prediction grids were created based on the average prediction (10-fold runs) of the models.
@@ -686,7 +685,7 @@ With elevation variable.
 
 <img width="3600" height="1500" alt="Suitability_models_mean_with_elev" src="https://github.com/user-attachments/assets/df8139e0-aec9-4bb1-a477-ab85183ee3dd" />
 
-### Models Threshold
+## Models Threshold
 
 The fact that the models tend to disagree is shown by the low overlap of the high habitat values.
 Consistent model prediction for habitat suitability probability values => 0.7.
@@ -698,7 +697,7 @@ With elevation variable
 
 <img width="2000" height="1500" alt="Threshold_models_mean_with_elev" src="https://github.com/user-attachments/assets/83afd1a0-8bc2-42dc-951c-6aa5d242a2de" />
 
-### Standard deviation map and histogram of model predictions
+## Standard deviation map and histogram of model predictions
 
 The standard deviation measure also reflects the uncertainties in the more precise habitat determination. 0 = complete agreement, 0.5 = high prediction conflicts (two models say yes, two say no).
 
@@ -724,7 +723,7 @@ With elevation variable
 </p>
 
 
-### Model prediction correlation 
+## Model prediction correlation 
 
 Spatial correlation of the models, how similar are their predictions of the probability of the habitat occurring?
 
@@ -741,7 +740,7 @@ Spatial correlation of the models, how similar are their predictions of the prob
 </p>
 
 The models that include height do not necessarily have greater overlap. The performance of the models depends on the randomly distributed train test data set.
-## Challenges
+# Challenges
 
 _The species has a very specific, fragmented habitat in mountainous areas. With a finer grid (currently approx. 4 km resolution), the differences could be better captured, but this requires a lot of computing power. 
 
