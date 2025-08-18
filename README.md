@@ -176,7 +176,6 @@ Without elevation variable
 <img width="3600" height="1500" alt="Suitability_models_mean_without_elev" src="https://github.com/user-attachments/assets/d81b9ca5-abc4-4751-933b-3b30e475c259" />
 
 With elevation variable. 
-The inclusion of elevation data led to a greater separation of the niches, which logically fits with the actual habitats. As a result, average values tended to be lower and the overall appearance sharper.
 
 <img width="3600" height="1500" alt="Suitability_models_mean_with_elev" src="https://github.com/user-attachments/assets/df8139e0-aec9-4bb1-a477-ab85183ee3dd" />
 
@@ -234,8 +233,7 @@ Spatial correlation of the models, how similar are their predictions of the prob
   Without elevation variable &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp; With elevation variable
 </p>
 
-The models that include elevation have a greater overlap in their predictions.
-
+The models that include height do not necessarily have greater overlap. The performance of the models depends on the randomly distributed train test data set.
 ## Challenges
 
 _The species has a very specific, fragmented habitat in mountainous areas. With a finer grid (currently approx. 4 km resolution), the differences could be better captured, but this requires a lot of computing power. 
