@@ -46,10 +46,11 @@ dl <- occ_download_get(download_key, overwrite = TRUE)
 
 occ_data <- occ_download_import(dl)
 
-#*******************************************************************************
-#**...or if the data already exists locally: *
-#
-# #path <- "C:/users/Duck/Documents/Studium/EAGLE/2_semester/3_Spatio_Temporal_Modelling/ST25_SpatioTemporalModeling_Exam/ST25_SpatioTemporalModeling/data/0003051-250811113504898.zip"
+# *******************************************************************************
+# #**...or if the data already exists locally: *
+# 
+# path <- "C:/users/Duck/Documents/Studium/EAGLE/2_semester/3_Spatio_Temporal_Modelling/ST25_SpatioTemporalModeling_Exam/ST25_SpatioTemporalModeling/data/0003051-250811113504898.zip"
+# 
 # path <- "C:/.../0003051-250811113504898.zip"
 # tmpdir   <- tempdir()
 # 
@@ -58,7 +59,7 @@ occ_data <- occ_download_import(dl)
 # # load data
 # occ_data <- read_tsv(file.path(tmpdir, "occurrence.txt"), show_col_types = FALSE)
 # 
-#*******************************************************************************
+# *******************************************************************************
 
 
 
@@ -97,10 +98,13 @@ world_sf <- st_as_sf(world_crop)
 ggplot() +
   geom_sf(data = world_sf, color = "grey50", linewidth = 0.2) +
   geom_point(data = occ_data_filtered,
-             aes(x = decimalLongitude, y = decimalLatitude),
-             size = 0.5, color = "red") +
+             aes(x = decimalLongitude, y = decimalLatitude, color = "Observed occurrence"),
+             size = 0.5) +
+  scale_color_manual(name = "Legend", values = c("Observed occurrence" = "red")) +
   coord_sf(xlim = c(xmin, xmax), ylim = c(ymin, ymax), expand = FALSE) +
-  labs (title = "Area of interest")
+  labs (title = "Area of interest of the habitat of Oreamnos americanus",
+        x= "Longitude",
+        y= "Latitude")
 
 
 
@@ -135,7 +139,7 @@ writeRaster(bioclim_data,
             overwrite = TRUE)
 
 #** Or load data if already downloaded*
-# #*
+#*
 # bioclim_aoi_file <- file.path(path_data, "bioclim_AOI_2p5m.tif")
 # bioclim_data <- rast(bioclim_aoi_file)
 
@@ -175,9 +179,11 @@ table(goat$occ)
 ggplot() +
   geom_sf(data = world_sf, color = "grey50", fill = "white", linewidth = 0.2) +
   geom_point(data = goat, aes(x = decimalLongitude, y = decimalLatitude, color = factor(occ)),size = 0.5) +
-  scale_color_manual(values = c("0" = "grey30", "1" = "red"), labels = c("Random", "Presence")) +
+  scale_color_manual(name= "Legend", values = c("0" = "grey30", "1" = "red"), labels = c("Random", "Observed Occurrence")) +
   coord_sf(xlim = c(xmin, xmax), ylim = c(ymin, ymax), expand = FALSE) +
-  labs(title = "Presences & Random")
+  labs(title = "Observed occurrence & Random",
+       x= "Longitude",
+       y= "Latitude")
 
 
 
@@ -558,19 +564,35 @@ for (m in names(mean_preds)) {
 plot_suffix <- if (elev) "with_elev" else "without_elev"
 mean_plot_file <- paste0("Suitability_models_mean_", plot_suffix, ".png")
 
-png(filename = mean_plot_file, width = 2000, height = 1500, res = 150)
+# convert raster in dataframe
+df_glm <- as.data.frame(mean_preds$GLM, xy = TRUE) %>% mutate(Model = "GLM")
+df_gam <- as.data.frame(mean_preds$GAM, xy = TRUE) %>% mutate(Model = "GAM")
+df_mx  <- as.data.frame(mean_preds$MaxNet, xy = TRUE) %>% mutate(Model = "MaxNet")
+df_rf  <- as.data.frame(mean_preds$RF, xy = TRUE) %>% mutate(Model = "RF")
+df_ens <- as.data.frame(mean_preds$Ensemble, xy = TRUE) %>% mutate(Model = "Ensemble")
 
-par(mfrow = c(2, 3))
-plot(mean_preds$GLM,      main = "Mean Prediction (GLM)")
-plot(mean_preds$GAM,      main = "Mean Prediction (GAM)")
-plot(mean_preds$MaxNet,   main = "Mean Prediction (MaxNet)")
-plot(mean_preds$RF,       main = "Mean Prediction (RF)")
-plot(mean_preds$Ensemble, main = "Mean Prediction (Ensemble)")
-mtext("Mean Model Prediction", outer = TRUE, line = -2, cex = 1.5)
-par(mfrow = c(1, 1))
-dev.off()
+# rename to get a value column for all data frames
+names(df_glm)[3] <- "Suitability"
+names(df_gam)[3] <- "Suitability"
+names(df_mx)[3]  <- "Suitability"
+names(df_rf)[3]  <- "Suitability"
+names(df_ens)[3] <- "Suitability"
 
+# combine
+df_all <- bind_rows(df_glm, df_gam, df_mx, df_rf, df_ens)
+
+mean_plot <- ggplot(df_all, aes(x = x, y = y, fill = Suitability)) +
+  geom_raster() +
+  scale_fill_viridis_c(name = "Suitability\nas a habitat", option = "plasma",limits = c(0, 1), breaks = seq(0, 1, 0.25)) +
+  facet_wrap(~ Model, ncol = 3) +
+  coord_equal() +
+  labs(title = "Mean Model Predictions of GLM, GAM, MaxNet, RF, and Ensemble",
+       x = "Longitude", y = "Latitude")
+
+ggsave(mean_plot_file, plot = mean_plot, width = 12, height = 5, dpi = 300)
 cat("Plot got saved as:", mean_plot_file, "\n")
+
+
 
 
 ################################################################################
@@ -643,13 +665,25 @@ r_sd <- app(r_stack, fun = sd, na.rm = TRUE)
 plot_suffix <- if (elev) "with_elev" else "without_elev"
 sd_plot_file <- paste0("SD_between_models_", plot_suffix, ".png")
 
+df_sd <- as.data.frame(r_sd, xy = TRUE, na.rm = TRUE)
+names(df_sd)[3] <- "SD"
+
+p_sd <-ggplot(df_sd, aes(x = x, y = y, fill = SD)) +
+  geom_raster() +
+  scale_fill_viridis_c(
+    name   = "Standard\nDeviation",
+    limits = c(0, 0.5),
+    breaks = seq(0, 0.5, 0.1)
+  ) +
+  coord_fixed() +
+  labs(
+    title = "Standard deviation of GLM, GAM, MaxNet, RF",
+    subtitle = "Comparison of spatial predictions",
+    x = "Longitude", y = "Latitude")
+
 # save in working directory
-png(filename = sd_plot_file, width = 1600, height = 1200, res = 150)
-plot(r_sd, main = "Standard deviation of GLM, GAM, MaxNet, RF")
-dev.off()
-
+ggsave(sd_plot_file, plot = p_sd, width = 12, height = 7, dpi = 300)
 cat("Standard deviation raster saved as:", sd_plot_file, "\n")
-
 
 # histogramm
 vals <- as.vector(terra::values(r_sd, na.rm = TRUE))
@@ -683,7 +717,7 @@ corr_png_file <- paste0("Model_prediction_correlation_", plot_suffix, ".png")
 
 png(filename = corr_png_file, width = 1400, height = 1200, res = 150)
 
-par(oma = c(0, 0, 4, 0))
+par(oma = c(0, 0, 6, 0), mar = c(3, 3, 1, 6))
 corrplot::corrplot(cmat, method = "color", type = "full", addCoef.col = "black",
                    tl.col = "black", tl.srt = 45, number.cex = 0.8, cl.pos = "r")
 title("Correlation of mean model predictions", line = 3.5, cex.main = 1.4)
